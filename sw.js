@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bailaconmigo-v1.0.1'; // <--- MODIFICA QUESTO NUMERO QUANDO AGGIORNI L'APP
+const CACHE_NAME = 'bailaconmigo-v1.0.2'; // <--- MODIFICA QUESTO NUMERO QUANDO AGGIORNI L'APP
 
 const ASSETS_TO_CACHE = [
     './',
