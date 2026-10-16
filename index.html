@@ -237,8 +237,8 @@
 
             <form onsubmit="processAuth(event)" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">File Video (MP4, WebM)</label>
-                    <input type="file" id="form-file" accept="video/*" required class="custom-input custom-file-input w-full rounded-2xl px-4 py-2.5 text-sm outline-none transition cursor-pointer shadow-inner">
+                    <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80" id="label-username">Nome e Cognome (o Email Admin)</label>
+                    <input type="text" id="auth-username" required placeholder="Es. Mario Rossi" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Password</label>
@@ -1262,8 +1262,8 @@
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Link Video (URL diretto MP4 o Embed)</label>
-                            <input type="url" id="form-video-url" required placeholder="https://esempio.com/video.mp4" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                            <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">File Video (MP4, WebM)</label>
+                            <input type="file" id="form-file" accept="video/*" required class="custom-input custom-file-input w-full rounded-2xl px-4 py-2.5 text-sm outline-none transition cursor-pointer shadow-inner">
                         </div>
 
                         <div>
