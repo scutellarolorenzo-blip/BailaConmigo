@@ -448,20 +448,23 @@
                 if (session.user.email === ADMIN_EMAIL) {
                     state.isAdmin = true;
                     state.userProfile = { username: 'Admin', status: 'approved' };
-                    // Forza sempre la rotta admin all'accesso dell'admin
                     state.currentRoute = 'admin';
+                    state.favorites = [];
                 } else {
                     let { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
                     state.userProfile = profile;
                     state.isAdmin = false;
+                    // Carica i preferiti personali dal profilo Cloud di questo specifico account
+                    state.favorites = profile?.favorites || [];
                 }
             } else {
                 state.user = null;
                 state.userProfile = null;
                 state.isAdmin = false;
+                state.favorites = [];
             }
             updateAuthUI();
-            updateBottomNav(); // <-- AGGIUNTO QUI: Forza l'aggiornamento immediato dei tab in basso
+            updateBottomNav();
         }
 
         function setAuthMode(mode) {
@@ -1259,8 +1262,8 @@
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">File Video (MP4, WebM)</label>
-                            <input type="file" id="form-file" accept="video/*" required class="custom-input custom-file-input w-full rounded-2xl px-4 py-2.5 text-sm outline-none transition cursor-pointer shadow-inner">
+                            <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Link Video (URL diretto MP4 o Embed)</label>
+                            <input type="url" id="form-video-url" required placeholder="https://esempio.com/video.mp4" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
                         </div>
 
                         <div>
@@ -1561,23 +1564,20 @@
             const title = document.getElementById('form-title').value;
             const category = document.getElementById('form-category').value;
             const level = document.getElementById('form-level').value;
-            const fileInput = document.getElementById('form-file');
+            const videoUrl = document.getElementById('form-video-url').value.trim();
             const duration = document.getElementById('form-duration').value || '5:00';
             const desc = document.getElementById('form-desc').value;
 
-            if (!fileInput.files || fileInput.files.length === 0) {
-                showToast('Seleziona un file video da caricare', 'error');
+            if (!videoUrl) {
+                showToast('Inserisci un link video valido', 'error');
                 return;
             }
-
-            const videoFile = fileInput.files[0];
-            const localVideoUrl = URL.createObjectURL(videoFile);
 
             const newVideoRecord = {
                 title,
                 category,
                 level,
-                url: localVideoUrl,
+                url: videoUrl,
                 duration,
                 description: desc
             };
@@ -1607,7 +1607,7 @@
             }
         }
 
-        function toggleFavorite(id, e) {
+        async function toggleFavorite(id, e) {
             if (e) e.stopPropagation();
             const index = state.favorites.indexOf(id);
             if (index > -1) {
@@ -1617,7 +1617,15 @@
                 state.favorites.push(id);
                 showToast('Aggiunto ai preferiti', 'success');
             }
-            localStorage.setItem('baila_favorites', JSON.stringify(state.favorites));
+
+            // Salva i preferiti nel database Supabase legati unicamente a questo utente
+            if (state.user && !state.isAdmin) {
+                await supabaseClient
+                    .from('profiles')
+                    .update({ favorites: state.favorites })
+                    .eq('id', state.user.id);
+            }
+
             render();
             if (state.currentVideoModal === id) {
                 updateModalFavBtn();
