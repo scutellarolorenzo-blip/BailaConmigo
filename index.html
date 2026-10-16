@@ -1,0 +1,1874 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baila Conmigo - Accademia di Ballo</title>
+    <!-- PWA Manifest & Meta Tag per iOS/Android -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ec4899">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BailaConmigo">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-6px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Supabase JS Client CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; transition: background 0.5s ease, color 0.5s ease; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* --- STILI DINAMICI PER CIASCUN TEMA --- */
+        
+        /* 1. TEMA SCURO */
+        body.theme-dark {
+            background: linear-gradient(135deg, #1a051d 0%, #2b0b1f 35%, #4a0e2e 70%, #6b1138 100%);
+            color: #f1f5f9;
+            --accent: #ec4899;
+            --accent-gradient: linear-gradient(to right, #db2777, #f43f5e);
+            --card-bg: rgba(26, 11, 31, 0.75);
+            --card-border: rgba(244, 63, 94, 0.25);
+            --input-bg: rgba(20, 8, 24, 0.9);
+            --input-border: rgba(244, 63, 94, 0.3);
+            --modal-bg: linear-gradient(145deg, #250d2b, #150518);
+        }
+
+        /* 2. TEMA CHIARO */
+        body.theme-light {
+            background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 50%, #fff7ed 100%);
+            color: #1e293b;
+            --accent: #e11d48;
+            --accent-gradient: linear-gradient(to right, #e11d48, #f43f5e);
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --card-border: #fecdd3;
+            --input-bg: #ffffff;
+            --input-border: #cbd5e1;
+            --modal-bg: #ffffff;
+        }
+
+        /* 3. TEMA FREDDO */
+        body.theme-cool {
+            background: linear-gradient(135deg, #090d16 0%, #0f172a 40%, #0284c7 100%);
+            color: #f0f9ff;
+            --accent: #38bdf8;
+            --accent-gradient: linear-gradient(to right, #0284c7, #38bdf8);
+            --card-bg: rgba(15, 23, 42, 0.75);
+            --card-border: rgba(56, 189, 248, 0.25);
+            --input-bg: rgba(15, 23, 42, 0.9);
+            --input-border: rgba(56, 189, 248, 0.3);
+            --modal-bg: linear-gradient(145deg, #1e293b, #0f172a);
+        }
+
+        /* 4. TEMA CALDO */
+        body.theme-warm {
+            background: linear-gradient(135deg, #2c1205 0%, #7c2d12 40%, #ea580c 100%);
+            color: #fff7ed;
+            --accent: #fb923c;
+            --accent-gradient: linear-gradient(to right, #ea580c, #fb923c);
+            --card-bg: rgba(69, 26, 3, 0.75);
+            --card-border: rgba(251, 146, 60, 0.25);
+            --input-bg: rgba(69, 26, 3, 0.9);
+            --input-border: rgba(251, 146, 60, 0.3);
+            --modal-bg: linear-gradient(145deg, #7c2d12, #451a03);
+        }
+
+        .app-header, .app-nav { background: var(--card-bg); border-color: var(--card-border); backdrop-filter: blur(16px); }
+        .glass-card { background: var(--card-bg); border: 1px solid var(--card-border); backdrop-filter: blur(16px); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); transition: all 0.3s ease; }
+        .glass-card:hover { transform: translateY(-3px); border-color: var(--accent); }
+        .modal-box { background: var(--modal-bg); border: 1px solid var(--card-border); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4); color: inherit; }
+        .custom-input { background: var(--input-bg); border: 1px solid var(--input-border); color: inherit; }
+        .accent-bg { background: var(--accent-gradient); }
+        .accent-text { color: var(--accent); }
+
+        /* File input personalizzato */
+        input[type="file"].custom-file-input::-webkit-file-upload-button {
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            margin-right: 12px;
+            transition: opacity 0.2s;
+        }
+        input[type="file"].custom-file-input::-webkit-file-upload-button:hover { opacity: 0.9; }
+        input[type="file"].custom-file-input { color: inherit; }
+
+        .custom-select-wrapper { position: relative; width: 100%; }
+        .custom-select-trigger {
+            width: 100%; display: flex; align-items: center; justify-content: space-between;
+            box-sizing: border-box; padding: 12px 16px; border-radius: 14px; cursor: pointer; transition: all 0.2s ease; font-size: 0.875rem;
+            background: var(--input-bg); border: 1px solid var(--input-border); color: inherit;
+        }
+        .custom-select-trigger span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; text-align: left; }
+        .custom-select-options {
+            display: none; 
+            position: absolute; 
+            left: 0; 
+            width: 100% !important;
+            max-height: 200px; 
+            overflow-y: auto; 
+            border-radius: 14px !important; 
+            padding: 6px !important;
+            z-index: 999999 !important; 
+            box-sizing: border-box; 
+            background: var(--modal-bg) !important; 
+            border: 1px solid var(--card-border) !important; 
+            color: inherit !important;
+        }
+        
+        /* AGGIUNGI QUESTE RIGHE SUBITO SOTTO */
+        #signup-courses-container, #edit-student-courses-container, #signup-courses-section {
+            overflow: visible !important;
+        }
+        .custom-option {
+            padding: 10px 14px; font-size: 13px; font-weight: 500; border-radius: 10px; cursor: pointer;
+            transition: all 0.18s ease; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; box-sizing: border-box; color: inherit;
+        }
+        .custom-option:hover { background: var(--card-border); }
+        .modal-overlay { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(12px); }
+    </style>
+</head>
+<body class="theme-dark h-full flex flex-col antialiased selection:bg-pink-500 selection:text-white" id="main-body">
+
+    <!-- Header / Navbar -->
+    <header class="app-header border-b sticky top-0 z-40 px-4 py-2.5 shadow-lg">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            
+            <!-- Sinistra: Pulsante Account / Logout -->
+           <div class="flex items-center">
+                <button onclick="handleAuthClick()" id="authBtn" class="px-3.5 py-2 rounded-2xl glass-card text-xs font-semibold transition flex items-center space-x-1.5 shadow-inner">
+                    <i class="fa-solid fa-user accent-text"></i>
+                    <span class="hidden sm:inline" id="auth-btn-text">Account</span>
+                </button>
+            </div>
+            
+            <!-- Destra: Cambio Tema & Ricerca -->
+            <div class="flex items-center space-x-2">
+                <!-- Selettore Tema Dropdown -->
+                <div class="relative">
+                    <button onclick="toggleThemeMenu()" class="p-2.5 rounded-2xl glass-card transition shadow-inner flex items-center space-x-1" title="Cambia Tema">
+                        <i class="fa-solid fa-palette accent-text"></i>
+                    </button>
+                    <div id="theme-dropdown" class="absolute right-0 top-full mt-2 w-36 py-2 rounded-2xl shadow-2xl modal-box border hidden z-50">
+                        <button onclick="setTheme('dark')" class="w-full text-left px-4 py-2 text-xs font-semibold hover:opacity-100 opacity-80 flex items-center space-x-2"><i class="fa-solid fa-moon text-pink-400"></i><span>Scuro</span></button>
+                        <button onclick="setTheme('light')" class="w-full text-left px-4 py-2 text-xs font-semibold hover:opacity-100 opacity-80 flex items-center space-x-2"><i class="fa-solid fa-sun text-amber-500"></i><span>Chiaro</span></button>
+                        <button onclick="setTheme('cool')" class="w-full text-left px-4 py-2 text-xs font-semibold hover:opacity-100 opacity-80 flex items-center space-x-2"><i class="fa-solid fa-snowflake text-sky-400"></i><span>Freddo</span></button>
+                        <button onclick="setTheme('warm')" class="w-full text-left px-4 py-2 text-xs font-semibold hover:opacity-100 opacity-80 flex items-center space-x-2"><i class="fa-solid fa-fire text-orange-500"></i><span>Caldo</span></button>
+                    </div>
+                </div>
+
+                <!-- Search Trigger -->
+                <button onclick="toggleSearchModal(true)" class="p-2.5 rounded-2xl glass-card transition shadow-inner">
+                    <i class="fa-solid fa-search accent-text"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 overflow-y-auto pb-24">
+        <div class="max-w-4xl mx-auto p-4 sm:p-6" id="app-container">
+            <!-- Dynamic Content Injected Here -->
+        </div>
+    </main>
+
+    <!-- Bottom Navigation Bar (Visibile solo se Admin o Studente Approvato) -->
+    <nav class="app-nav fixed bottom-0 left-0 right-0 border-t z-40 px-6 py-2.5 shadow-2xl hidden" id="bottom-nav">
+        <div class="max-w-md mx-auto flex justify-around items-center">
+            <button onclick="navigate('home')" id="nav-home" class="flex flex-col items-center py-1 px-3 accent-text transition">
+                <i class="fa-solid fa-compass text-lg mb-0.5"></i>
+                <span class="text-[10px] font-bold">Corsi</span>
+            </button>
+            <button onclick="navigate('favorites')" id="nav-favorites" class="flex flex-col items-center py-1 px-3 opacity-60 hover:opacity-100 transition">
+                <i class="fa-solid fa-heart text-lg mb-0.5"></i>
+                <span class="text-[10px] font-bold">Preferiti</span>
+            </button>
+            <button onclick="navigate('admin')" id="nav-admin" class="flex flex-col items-center py-1 px-3 opacity-60 hover:opacity-100 transition">
+                <i class="fa-solid fa-sliders text-lg mb-0.5"></i>
+                <span class="text-[10px] font-bold">Gestione</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Modal Autenticazione (Accedi / Registrati) -->
+    <div id="auth-modal" class="fixed inset-0 modal-overlay z-50 flex flex-col justify-center items-center p-4">
+        <div class="max-w-md w-full modal-box rounded-3xl p-6 relative animate-float">
+            
+            <div class="text-center mb-6">
+                <div class="w-14 h-14 rounded-2xl accent-bg text-white flex items-center justify-center mx-auto mb-3 text-2xl shadow-lg">
+                    <i class="fa-solid fa-user-lock"></i>
+                </div>
+                <h3 class="text-xl font-extrabold" id="auth-modal-title">Accedi</h3>
+                <p class="text-xs opacity-70 mt-1" id="auth-modal-desc">Inserisci le tue credenziali per entrare</p>
+            </div>
+
+            <!-- Tab Switcher: Solo Accedi e Registrati -->
+            <div class="flex rounded-2xl glass-card p-1 mb-5">
+                <button onclick="setAuthMode('login')" id="tab-login" class="flex-1 py-2 text-xs font-bold rounded-xl accent-bg text-white transition">Accedi</button>
+                <button onclick="setAuthMode('signup')" id="tab-signup" class="flex-1 py-2 text-xs font-bold rounded-xl opacity-70 transition">Registrati</button>
+            </div>
+
+            <form onsubmit="processAuth(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80" id="label-username">Nome e Cognome (o Email Admin)</label>
+                    <input type="text" id="auth-username" required placeholder="Es. Mario Rossi" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Password</label>
+                    <input type="password" id="auth-password" required placeholder="••••••••" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                </div>
+
+                <!-- Sezione selezione corsi e livelli (visibile solo in fase di registrazione) -->
+                <div id="signup-courses-section" class="hidden space-y-3 pt-2 border-t" style="border-color: var(--card-border);">
+                    <label class="block text-xs font-semibold uppercase tracking-wider opacity-80">Seleziona Corsi e Livello Massimo</label>
+                    <div id="signup-courses-container" class="space-y-2 pr-1" style="overflow: visible !important;">
+                        <!-- Popolato dinamicamente da JS -->
+                    </div>
+                </div>
+
+                <button type="submit" id="auth-submit-btn" class="w-full py-3.5 accent-bg text-white font-bold rounded-2xl text-sm shadow-xl transition transform active:scale-95">
+                    Accedi
+                </button>
+            </form>
+        </div>
+    </div>
+    <!-- Modale Modifica Studente per Admin -->
+    <div id="edit-student-modal" class="fixed inset-0 modal-overlay z-50 flex flex-col justify-center items-center p-4 hidden">
+        <div class="max-w-md w-full modal-box rounded-3xl p-6 relative animate-float">
+            <h3 class="text-lg font-extrabold mb-1">Modifica Permessi Studente</h3>
+            <p class="text-xs opacity-70 mb-4" id="edit-student-title">Configura corsi e livelli</p>
+            <input type="hidden" id="edit-student-id">
+           <div id="edit-student-courses-container" class="space-y-3 pr-1 mb-5" style="overflow: visible !important;"></div>
+            <div class="flex space-x-3">
+                <button type="button" onclick="closeEditStudentModal()" class="flex-1 py-3 glass-card font-semibold rounded-2xl text-xs transition">Annulla</button>
+                <button type="button" onclick="saveStudentPermissions()" class="flex-1 py-3 accent-bg text-white font-bold rounded-2xl text-xs transition shadow-lg">Salva e Approva</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Search Modal -->
+    <div id="search-modal" class="fixed inset-0 modal-overlay z-50 flex flex-col p-4 pt-16 hidden animate-fade-in">
+        <div class="max-w-xl w-full mx-auto modal-box rounded-3xl overflow-hidden flex flex-col max-h-[80vh]">
+            <div class="p-4 border-b flex items-center space-x-3 opacity-90" style="border-color: var(--card-border);">
+                <i class="fa-solid fa-search accent-text"></i>
+                <input type="text" id="global-search-input" oninput="handleGlobalSearch(this.value)" placeholder="Cerca figura o stile (es. Bachata, Enchufla)..." class="bg-transparent border-none outline-none w-full placeholder:opacity-50 text-sm">
+                <button onclick="toggleSearchModal(false)" class="opacity-60 hover:opacity-100 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div id="search-results" class="p-4 overflow-y-auto space-y-2 flex-1">
+                <p class="text-center opacity-50 text-sm py-8">Inizia a digitare per cercare tra tutte le lezioni...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Player Modal -->
+    <div id="video-modal" class="fixed inset-0 modal-overlay z-50 flex flex-col justify-center items-center p-0 sm:p-6 hidden">
+        <div class="modal-box w-full max-w-3xl sm:rounded-3xl overflow-hidden flex flex-col h-full sm:h-auto max-h-screen shadow-2xl">
+            <div class="p-4 border-b flex items-center justify-between" style="border-color: var(--card-border);">
+                <div class="flex items-center space-x-3 truncate">
+                    <span id="modal-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider accent-bg text-white">Livello</span>
+                    <h3 id="modal-title" class="font-extrabold truncate text-base">Titolo Figura</h3>
+                </div>
+                <button onclick="closeVideoModal()" class="w-9 h-9 rounded-2xl glass-card flex items-center justify-center opacity-80 hover:opacity-100 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="relative w-full bg-black aspect-video flex items-center justify-center" id="player-container"></div>
+            <div class="p-5 overflow-y-auto space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span id="modal-category" class="text-xs font-extrabold accent-text uppercase tracking-widest">Ballo</span>
+                        <p id="modal-duration" class="text-xs opacity-70 mt-0.5"><i class="fa-regular fa-clock mr-1"></i> Durata stimata: 5 min</p>
+                    </div>
+                    <button id="modal-fav-btn" onclick="toggleFavoriteFromModal()" class="px-4 py-2 rounded-2xl glass-card text-sm font-semibold flex items-center space-x-2 transition shadow-inner">
+                        <i class="fa-regular fa-heart"></i>
+                        <span>Preferito</span>
+                    </button>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold opacity-70 uppercase tracking-wider mb-1">Note e Consigli dei Maestri</h4>
+                    <p id="modal-desc" class="text-sm leading-relaxed p-4 rounded-2xl glass-card shadow-inner opacity-90">Nessuna descrizione fornita.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Prompt Modal -->
+    <div id="custom-prompt-modal" class="fixed inset-0 modal-overlay z-50 flex flex-col justify-center items-center p-4 hidden">
+        <div class="max-w-md w-full modal-box rounded-3xl p-6 relative animate-float">
+            <h3 class="text-lg font-extrabold mb-2" id="custom-prompt-title">Titolo</h3>
+            <p class="text-xs opacity-70 mb-4" id="custom-prompt-desc">Inserisci il valore richiesto.</p>
+            <input type="text" id="custom-prompt-input" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition mb-5 shadow-inner">
+            <div class="flex space-x-3">
+                <button type="button" onclick="closeCustomPrompt(false)" class="flex-1 py-3 glass-card font-semibold rounded-2xl text-xs transition">Annulla</button>
+                <button type="button" onclick="closeCustomPrompt(true)" class="flex-1 py-3 accent-bg text-white font-bold rounded-2xl text-xs transition shadow-lg">Conferma</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 modal-box text-white px-5 py-3 rounded-2xl shadow-2xl z-50 flex items-center space-x-3 transition-all duration-300 translate-y-20 opacity-0 pointer-events-none">
+        <i id="toast-icon" class="fa-solid fa-circle-check accent-text text-lg"></i>
+        <span id="toast-msg" class="text-xs font-semibold">Messaggio</span>
+    </div>
+
+    <!-- JavaScript Logic & Supabase Integration -->
+    <script>
+        const SUPABASE_URL = 'https://gkugxaimixunqgiwqryl.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdWd4YWltaXh1bnFnaXdxcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwOTM5NTYsImV4cCI6MjEwNzY2OTk1Nn0.98skeSfxN-Fcd3LiYFX29JCtvi9RwxqMJUMOCxIJomE'; 
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const ADMIN_EMAIL = 'lorenzofortest@gmail.com';
+
+        const defaultCategories = [
+            { 
+                id: 'salsa', name: 'Salsa Cubana', desc: 'Primi passi, intermedi e avanzati', icon: 'fa-fire', 
+                bgImage: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=600&q=80',
+                levels: [
+                    { id: 'primi-passi', name: 'Primi Passi (Base)', subtitle: 'Fondamentali e prime guide' },
+                    { id: 'primo-intermedio', name: 'Primo Intermedio', subtitle: 'Combinazioni base-intermedie' },
+                    { id: 'secondo-intermedio', name: 'Secondo Intermedio', subtitle: 'Figure complesse e ritmiche' },
+                    { id: 'intermedio-avanzato', name: 'Intermedio Avanzato', subtitle: 'Stile, velocità e musicalità' }
+                ]
+            },
+            { 
+                id: 'bachata', name: 'Bachata', desc: 'Sensual & Tradition', icon: 'fa-heart', 
+                bgImage: 'https://images.unsplash.com/photo-1547153760-18fc86324498?auto=format&fit=crop&w=600&q=80',
+                levels: [
+                    { id: 'primi-passi', name: 'Primi Passi (Base)', subtitle: 'Passo base, tap e giro base' },
+                    { id: 'primo-intermedio', name: 'Primo Intermedio', subtitle: 'Spostamenti e prime figure' },
+                    { id: 'secondo-intermedio', name: 'Segundo Intermedio', subtitle: 'Ondulazioni e passaggi' },
+                    { id: 'intermedio-avanzato', name: 'Intermedio Avanzato', subtitle: 'Footwork e figure avanzate' }
+                ]
+            },
+            { 
+                id: 'kizomba', name: 'Kizomba', desc: 'Base & Intermedio', icon: 'fa-music', 
+                bgImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&q=80',
+                levels: [
+                    { id: 'base', name: 'Base', subtitle: 'Passo base e connessione di coppia' },
+                    { id: 'intermedio', name: 'Intermedio', subtitle: 'Saída, variações e blocks' }
+                ]
+            },
+            { 
+                id: 'rueda', name: 'Rueda de Casino', desc: 'Livello Avanzato', icon: 'fa-circle-nodes', 
+                bgImage: 'https://images.unsplash.com/photo-1504609773096-104ff2c73ba4?auto=format&fit=crop&w=600&q=80',
+                levels: [
+                    { id: 'avanzato', name: 'Avanzato', subtitle: 'Chiamate complesse e cambi di dama' }
+                ]
+            }
+        ];
+
+        const defaultVideos = [
+            {
+                id: 'v1', title: 'Guapea y Dile Que No', category: 'salsa', level: 'primi-passi',
+                url: 'https://www.w3schools.com/html/mov_bbb.mp4', duration: '4:30',
+                desc: 'Figure fondamentali della Salsa Cubana per iniziare a ballare in coppia.'
+            }
+        ];
+
+        let state = {
+            currentRoute: 'home',
+            selectedCategory: null,
+            selectedLevel: null,
+            user: null,
+            userProfile: null,
+            isAdmin: false,
+            authMode: 'login',
+            favorites: JSON.parse(localStorage.getItem('baila_favorites')) || [],
+            videos: [],
+            categories: [],
+            studentsList: [],
+            currentVideoModal: null
+        };
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const savedTheme = localStorage.getItem('baila_theme') || 'dark';
+            setTheme(savedTheme, false);
+
+            await checkSessionAndProfile();
+            await loadDataFromCloud();
+            
+            // Se l'utente è admin, forza la rotta e aggiorna la UI dei tab inferiori
+            if (state.isAdmin) {
+                state.currentRoute = 'admin';
+            }
+
+            render();
+            updateBottomNav(); // Sincronizza subito l'icona attiva nella navbar in basso
+
+            supabaseClient
+                .channel('public:profiles')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async (payload) => {
+                    await checkSessionAndProfile();
+                    await loadDataFromCloud();
+                    render();
+                })
+                .subscribe();
+                // Registrazione Service Worker per PWA
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('./sw.js')
+                        .then((reg) => console.log('Service Worker registrato:', reg.scope))
+                        .catch((err) => console.log('Errore Service Worker:', err));
+                }
+        });
+
+        async function checkSessionAndProfile() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session && session.user) {
+                state.user = session.user;
+                if (session.user.email === ADMIN_EMAIL) {
+                    state.isAdmin = true;
+                    state.userProfile = { username: 'Admin', status: 'approved' };
+                    // Forza sempre la rotta admin all'accesso dell'admin
+                    state.currentRoute = 'admin';
+                } else {
+                    let { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+                    state.userProfile = profile;
+                    state.isAdmin = false;
+                }
+            } else {
+                state.user = null;
+                state.userProfile = null;
+                state.isAdmin = false;
+            }
+            updateAuthUI();
+            updateBottomNav(); // <-- AGGIUNTO QUI: Forza l'aggiornamento immediato dei tab in basso
+        }
+
+        function setAuthMode(mode) {
+            state.authMode = mode;
+            const loginTab = document.getElementById('tab-login');
+            const signupTab = document.getElementById('tab-signup');
+            const title = document.getElementById('auth-modal-title');
+            const desc = document.getElementById('auth-modal-desc');
+            const btn = document.getElementById('auth-submit-btn');
+            const label = document.getElementById('label-username');
+            const coursesSection = document.getElementById('signup-courses-section');
+
+            document.getElementById('auth-username').value = '';
+            document.getElementById('auth-password').value = '';
+
+            if (mode === 'login') {
+                loginTab.className = "flex-1 py-2 text-xs font-bold rounded-xl accent-bg text-white transition";
+                signupTab.className = "flex-1 py-2 text-xs font-bold rounded-xl opacity-70 transition";
+                title.innerText = "Accedi";
+                desc.innerText = "Inserisci le tue credenziali per entrare";
+                label.innerText = "Nome e Cognome (o Email Admin)";
+                btn.innerText = "Accedi";
+                coursesSection.classList.add('hidden');
+            } else {
+                signupTab.className = "flex-1 py-2 text-xs font-bold rounded-xl accent-bg text-white transition";
+                loginTab.className = "flex-1 py-2 text-xs font-bold rounded-xl opacity-70 transition";
+                title.innerText = "Registrati";
+                desc.innerText = "Crea il tuo account, seleziona i corsi e invia la richiesta.";
+                label.innerText = "Nome e Cognome";
+                btn.innerText = "Invia richiesta di accesso";
+                coursesSection.classList.remove('hidden');
+                renderSignupCoursesCheckboxes();
+            }
+        }
+
+       function renderSignupCoursesCheckboxes() {
+            const container = document.getElementById('signup-courses-container');
+            if (!container) return;
+            let html = '';
+            state.categories.forEach(cat => {
+                let firstLvl = cat.levels && cat.levels.length > 0 ? cat.levels[0] : { id: 'base', name: 'Base' };
+                html += `
+                    <div class="p-3 rounded-2xl glass-card space-y-2 shadow-inner relative" style="overflow: visible !important; z-index: 1;">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" name="signup-course" value="${cat.id}" onchange="toggleCourseLevelsSelection('${cat.id}', this.checked)" class="rounded accent-pink-500">
+                            <span class="font-bold text-xs">${cat.name}</span>
+                        </label>
+                        <div id="levels-container-${cat.id}" class="hidden pl-5 space-y-1">
+                            <span class="text-[10px] opacity-70 uppercase block font-semibold">Livello massimo frequentato:</span>
+                            
+                            <div class="custom-select-wrapper" id="select-wrapper-signup-${cat.id}">
+                                <input type="hidden" id="signup-level-${cat.id}" value="${firstLvl.id}">
+                                <div class="custom-select-trigger" onclick="toggleCustomSelect('signup-${cat.id}')">
+                                    <span id="trigger-label-signup-${cat.id}">${firstLvl.name}</span>
+                                    <i class="fa-solid fa-chevron-down text-xs opacity-70 ml-2"></i>
+                                </div>
+                                <div class="custom-select-options modal-box" id="options-signup-${cat.id}">
+                                    ${cat.levels.map(l => `
+                                        <div class="custom-option ${l.id === firstLvl.id ? 'selected' : ''}" onclick="selectSignupOption('${cat.id}', '${l.id}', '${l.name.replace(/'/g, "\\'")}')">
+                                            <span>${l.name}</span>${l.id === firstLvl.id ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function selectSignupOption(catId, value, name) {
+            document.getElementById(`signup-level-${catId}`).value = value;
+            document.getElementById(`trigger-label-signup-${catId}`).innerText = name;
+            document.getElementById(`options-signup-${catId}`).style.display = 'none';
+
+            const container = document.getElementById(`options-signup-${catId}`);
+            container.querySelectorAll('.custom-option').forEach(opt => {
+                opt.classList.remove('selected');
+                const check = opt.querySelector('i.fa-check');
+                if(check) check.remove();
+            });
+
+            event.currentTarget.classList.add('selected');
+            event.currentTarget.innerHTML += '<i class="fa-solid fa-check text-xs"></i>';
+        }
+
+        function toggleCourseLevelsSelection(catId, isChecked) {
+            const container = document.getElementById(`levels-container-${catId}`);
+            if (isChecked) {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        function handleAuthClick() {
+            if (state.user) {
+                showConfirmModal(
+                    "Conferma Logout",
+                    "Vuoi effettuare il logout dal tuo account?",
+                    () => {
+                        supabaseClient.auth.signOut();
+                        state.user = null;
+                        state.userProfile = null;
+                        state.isAdmin = false;
+                        state.currentRoute = 'home';
+                        
+                        document.getElementById('auth-username').value = '';
+                        document.getElementById('auth-password').value = '';
+                        setAuthMode('login');
+
+                        updateAuthUI();
+                        showToast('Logout effettuato', 'info');
+                        render();
+                        updateBottomNav();
+                    }
+                );
+            } else {
+                document.getElementById('auth-modal').classList.remove('hidden');
+            }
+        }
+
+        async function processAuth(e) {
+            e.preventDefault();
+            const inputVal = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value;
+
+            try {
+                if (state.authMode === 'signup') {
+                    let usernameClean = inputVal.toLowerCase();
+                    
+                    let { data: existing } = await supabaseClient.from('profiles').select('*').eq('username', usernameClean).maybeSingle();
+                    if (existing) {
+                        showToast('Questo nome e cognome risulta già registrato.', 'error');
+                        return;
+                    }
+
+                    let subscriptions = {};
+                    document.querySelectorAll('input[name="signup-course"]:checked').forEach(chk => {
+                        let catId = chk.value;
+                        let lvlSelect = document.getElementById(`signup-level-${catId}`);
+                        subscriptions[catId] = lvlSelect ? lvlSelect.value : 'base';
+                    });
+
+                    if (Object.keys(subscriptions).length === 0) {
+                        showToast('Seleziona almeno un corso a cui partecipi.', 'error');
+                        return;
+                    }
+
+                    let emailToUse = `${usernameClean.replace(/[^a-z0-9\s]/g, '').trim().replace(/\s+/g, '_')}@bailaconmigo.student`;
+
+                    let { data: authData, error: authErr } = await supabaseClient.auth.signUp({ email: emailToUse, password });
+                    if (authErr) {
+                        showToast('Errore registrazione: ' + authErr.message, 'error');
+                        return;
+                    }
+
+                    if (authData.user) {
+                        let { error: profileErr } = await supabaseClient.from('profiles').insert([{ 
+                            id: authData.user.id, 
+                            username: usernameClean, 
+                            status: 'pending',
+                            subscriptions: subscriptions 
+                        }]);
+
+                        if (profileErr) {
+                            showToast('Errore salvataggio profilo: ' + profileErr.message, 'error');
+                            console.error(profileErr);
+                            return;
+                        }
+
+                        showToast('Richiesta inviata con successo! In attesa di approvazione.', 'success');
+                        
+                        document.getElementById('auth-username').value = '';
+                        document.getElementById('auth-password').value = '';
+                        setAuthMode('login');
+                        await checkSessionAndProfile();
+                        render();
+                    }
+                } else {
+                    let emailToLogin = inputVal.includes('@') ? inputVal : `${inputVal.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().replace(/\s+/g, '_')}@bailaconmigo.student`;
+                    
+                    let { error } = await supabaseClient.auth.signInWithPassword({ email: emailToLogin, password });
+                    if (error) {
+                        showToast('Credenziali non valide o non ancora approvato.', 'error');
+                        return;
+                    }
+                    showToast('Accesso riuscito!', 'success');
+                    
+                    document.getElementById('auth-username').value = '';
+                    document.getElementById('auth-password').value = '';
+
+                    await checkSessionAndProfile();
+                    render();
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Errore di connessione', 'error');
+            }
+        }
+
+        function updateAuthUI() {
+            const btnText = document.getElementById('auth-btn-text');
+            const bottomNav = document.getElementById('bottom-nav');
+            const authModal = document.getElementById('auth-modal');
+            const navAdmin = document.getElementById('nav-admin');
+
+            if (state.user) {
+                authModal.classList.add('hidden');
+                if (state.isAdmin) {
+                    btnText.innerText = 'Admin (Attivo)';
+                    if (navAdmin) navAdmin.style.display = 'flex';
+                    bottomNav.classList.remove('hidden');
+                } else if (state.userProfile && state.userProfile.status === 'approved') {
+                    btnText.innerText = `@${state.userProfile.username}`;
+                    if (navAdmin) navAdmin.style.display = 'none';
+                    bottomNav.classList.remove('hidden');
+                } else {
+                    btnText.innerText = 'In attesa approvazione';
+                    bottomNav.classList.add('hidden');
+                }
+            } else {
+                btnText.innerText = 'Accedi / Registrati';
+                bottomNav.classList.add('hidden');
+                authModal.classList.add('hidden');
+            }
+        }
+
+        function toggleThemeMenu() {
+            const dropdown = document.getElementById('theme-dropdown');
+            dropdown.classList.toggle('hidden');
+        }
+
+        function setTheme(themeName, save = true) {
+            const body = document.getElementById('main-body');
+            body.className = `theme-${themeName} h-full flex flex-col antialiased selection:bg-pink-500 selection:text-white`;
+            if (save) {
+                localStorage.setItem('baila_theme', themeName);
+                toggleThemeMenu();
+            }
+        }
+
+        async function loadDataFromCloud() {
+            try {
+                let { data: catData, error: catError } = await supabaseClient.from('categories').select('*');
+                if (catError || !catData || catData.length === 0) {
+                    state.categories = defaultCategories;
+                } else {
+                    state.categories = catData.filter(c => c.id !== 'admin_config').map(c => typeof c.data === 'string' ? JSON.parse(c.data) : c);
+                    if (state.categories.length === 0) state.categories = defaultCategories;
+                }
+
+                let { data: vidData, error: vidError } = await supabaseClient.from('videos').select('*');
+                if (vidError || !vidData || vidData.length === 0) {
+                    state.videos = defaultVideos;
+                } else {
+                    state.videos = vidData.map(v => ({
+                        id: v.id.toString(),
+                        title: v.title,
+                        category: v.category,
+                        level: v.level,
+                        url: v.url,
+                        duration: v.duration || '5:00',
+                        desc: v.description || v.desc
+                    }));
+                }
+
+                let { data: profData } = await supabaseClient.from('profiles').select('*');
+                if (profData) {
+                    state.studentsList = profData;
+                }
+            } catch (err) {
+                console.error("Errore connessione Cloud, uso dati locali", err);
+                state.categories = defaultCategories;
+                state.videos = defaultVideos;
+            }
+        }
+
+        async function saveCategoriesToCloud() {
+            try {
+                for (let cat of state.categories) {
+                    await supabaseClient.from('categories').upsert({ id: cat.id, name: cat.name, desc: cat.desc, icon: cat.icon, bgImage: cat.bgImage, levels: cat.levels });
+                }
+            } catch (e) { console.error("Errore salvataggio categorie", e); }
+        }
+
+        function navigate(route, param1 = null, param2 = null) {
+            if (route === 'admin' && !state.isAdmin) {
+                openAuthModal();
+                return;
+            }
+            state.currentRoute = route;
+            if (route === 'levels') state.selectedCategory = param1;
+            if (route === 'videos') {
+                state.selectedCategory = param1;
+                state.selectedLevel = param2;
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            render();
+            updateBottomNav();
+        }
+
+        function openAuthModal() {
+            document.getElementById('auth-modal').classList.remove('hidden');
+        }
+
+        function updateBottomNav() {
+            const navHome = document.getElementById('nav-home');
+            const navFav = document.getElementById('nav-favorites');
+            const navAdmin = document.getElementById('nav-admin');
+
+            if (!navHome || !navFav || !navAdmin) return;
+
+            // Reset di tutti i tab
+            navHome.className = 'flex flex-col items-center py-1 px-3 opacity-60 hover:opacity-100 transition';
+            navFav.className = 'flex flex-col items-center py-1 px-3 opacity-60 hover:opacity-100 transition';
+            navAdmin.className = 'flex flex-col items-center py-1 px-3 opacity-60 hover:opacity-100 transition';
+
+            // Attiva quello giusto in base alla rotta e allo stato admin
+            if (state.isAdmin) {
+                navAdmin.style.display = 'flex';
+                if (state.currentRoute === 'admin') {
+                    navAdmin.className = 'flex flex-col items-center py-1 px-3 accent-text transition scale-105';
+                } else if (state.currentRoute === 'home' || state.currentRoute === 'levels' || state.currentRoute === 'videos') {
+                    navHome.className = 'flex flex-col items-center py-1 px-3 accent-text transition scale-105';
+                } else if (state.currentRoute === 'favorites') {
+                    navFav.className = 'flex flex-col items-center py-1 px-3 accent-text transition scale-105';
+                }
+            } else {
+                navAdmin.style.display = 'none';
+                if (state.currentRoute === 'home' || state.currentRoute === 'levels' || state.currentRoute === 'videos') {
+                    navHome.className = 'flex flex-col items-center py-1 px-3 accent-text transition scale-105';
+                } else if (state.currentRoute === 'favorites') {
+                    navFav.className = 'flex flex-col items-center py-1 px-3 accent-text transition scale-105';
+                }
+            }
+        }
+
+        function render() {
+            const container = document.getElementById('app-container');
+            container.innerHTML = '';
+
+            if (!state.user) {
+                container.innerHTML = `
+                    <div class="text-center py-24 glass-card rounded-3xl p-8 max-w-lg mx-auto mt-12">
+                        <i class="fa-solid fa-lock text-5xl accent-text mb-4 animate-pulse"></i>
+                        <h2 class="text-2xl font-extrabold mb-2">Accesso Riservato</h2>
+                        <p class="opacity-80 text-sm mb-6">Effettua l'accesso o registrati per visualizzare i corsi dell'Accademia di Ballo.</p>
+                        <button onclick="openAuthModal()" class="px-6 py-3 accent-bg text-white font-bold rounded-2xl text-xs shadow-lg">Accedi / Registrati</button>
+                    </div>
+                `;
+                document.getElementById('auth-modal').classList.remove('hidden');
+                return;
+            }
+
+            if (state.user && !state.isAdmin && (!state.userProfile || state.userProfile.status !== 'approved')) {
+                container.innerHTML = `
+                    <div class="text-center py-24 glass-card rounded-3xl p-8 max-w-lg mx-auto mt-12">
+                        <i class="fa-solid fa-clock-rotate-left text-5xl accent-text mb-4 animate-bounce"></i>
+                        <h2 class="text-2xl font-extrabold mb-2">In Attesa di Approvazione</h2>
+                        <p class="opacity-80 text-sm mb-6">Il tuo account è in attesa che l'amministratore accetti la tua richiesta. Una volta approvato, potrai accedere a tutti i corsi.</p>
+                        <button onclick="handleAuthClick()" class="px-6 py-3 glass-card rounded-2xl text-xs font-semibold shadow">Effettua il Logout</button>
+                    </div>
+                `;
+                return;
+            }
+
+            switch(state.currentRoute) {
+                case 'home':
+                    container.innerHTML = renderHome();
+                    break;
+                case 'levels':
+                    container.innerHTML = renderLevels();
+                    break;
+                case 'videos':
+                    container.innerHTML = renderVideoList();
+                    break;
+                case 'favorites':
+                    container.innerHTML = renderFavorites();
+                    break;
+                case 'admin':
+                    if (!state.isAdmin) { navigate('home'); return; }
+                    container.innerHTML = renderAdminPanel();
+                    break;
+            }
+        }
+        function canAccessCourse(catId) {
+            if (state.isAdmin) return true;
+            if (!state.userProfile || !state.userProfile.subscriptions) return false;
+            return !!state.userProfile.subscriptions[catId];
+        }
+
+        function canAccessLevel(catId, levelId) {
+            if (state.isAdmin) return true;
+            if (!state.userProfile || !state.userProfile.subscriptions) return false;
+            let maxLevelId = state.userProfile.subscriptions[catId];
+            if (!maxLevelId) return false;
+
+            const cat = state.categories.find(c => c.id === catId);
+            if (!cat || !cat.levels) return false;
+
+            let maxIdx = cat.levels.findIndex(l => l.id === maxLevelId);
+            let currentIdx = cat.levels.findIndex(l => l.id === levelId);
+
+            return currentIdx <= maxIdx;
+        }
+
+       function renderHome() {
+            let availableCategories = state.isAdmin ? state.categories : state.categories.filter(cat => canAccessCourse(cat.id));
+
+            let html = `
+                <div class="mb-6">
+                    <div class="relative rounded-3xl overflow-hidden accent-bg p-6 sm:p-8 shadow-2xl text-white flex flex-col items-center justify-center text-center">
+                        <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-white/15 rounded-full blur-3xl pointer-events-none animate-pulse-slow"></div>
+
+                        <span class="px-3.5 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-bold uppercase tracking-wider border border-white/20 shadow mb-3">Accademia di Ballo</span>
+                        <h2 class="text-2xl sm:text-3xl font-extrabold mb-2 drop-shadow">I Tuoi Corsi Abilitati</h2>
+                        <p class="opacity-90 text-sm max-w-lg leading-relaxed font-medium">Accedi ai corsi e ai livelli autorizzati dal tuo abbonamento.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-extrabold flex items-center space-x-2">
+                        <i class="fa-solid fa-folder-open accent-text"></i>
+                        <span>Corsi Disponibili</span>
+                    </h3>
+                    <span class="text-xs font-semibold opacity-70">${availableCategories.length} Corsi</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            `;
+
+            if (availableCategories.length === 0) {
+                html += `<div class="col-span-full text-center py-12 glass-card rounded-3xl"><p class="text-sm opacity-60">Nessun corso abilitato al momento. Attendi che l'amministratore approvi le tue iscrizioni.</p></div>`;
+            } else {
+                availableCategories.forEach(cat => {
+                    const count = state.videos.filter(v => v.category === cat.id).length;
+                    html += `
+                        <div onclick="navigate('levels', '${cat.id}')" class="glass-card group relative rounded-3xl overflow-hidden cursor-pointer flex flex-col h-48">
+                            <div class="absolute inset-0 bg-cover bg-center opacity-70 group-hover:scale-105 transition duration-500" style="background-image: url('${cat.bgImage || 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=600&q=80'}')"></div>
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                            
+                            <div class="relative p-5 flex flex-col justify-between h-full z-10 text-white">
+                                <div class="flex items-start justify-between">
+                                    <div class="w-11 h-11 rounded-2xl bg-black/40 backdrop-blur border border-white/20 flex items-center justify-center accent-text shadow-lg">
+                                        <i class="fa-solid ${cat.icon || 'fa-music'} text-lg"></i>
+                                    </div>
+                                    <span class="px-3 py-1 rounded-full bg-black/40 backdrop-blur border border-white/20 text-xs font-semibold text-white">
+                                        ${count} video
+                                    </span>
+                                </div>
+                                <div>
+                                    <h4 class="text-xl font-extrabold group-hover:opacity-90 transition drop-shadow">${cat.name}</h4>
+                                    <p class="text-xs font-medium text-slate-200 mt-0.5 line-clamp-1 drop-shadow">${cat.desc || ''}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            html += `</div>`;
+            return html;
+        }
+
+        function renderLevels() {
+            const cat = state.categories.find(c => c.id === state.selectedCategory);
+            if (!cat) return `<p>Corso non trovato</p>`;
+
+            const allowedLevels = cat.levels ? cat.levels.filter(lvl => canAccessLevel(cat.id, lvl.id)) : [];
+
+            let html = `
+                <div class="mb-6 flex items-center justify-between">
+                    <button onclick="navigate('home')" class="px-3.5 py-2 rounded-2xl glass-card text-xs font-semibold flex items-center space-x-2 transition shadow-inner">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span>Torna ai Corsi</span>
+                    </button>
+                    <span class="text-xs font-bold px-3.5 py-1 rounded-full glass-card accent-text uppercase">${cat.name}</span>
+                </div>
+
+                <div class="mb-6">
+                    <h2 class="text-2xl font-extrabold mb-1">Seleziona il Livello</h2>
+                    <p class="opacity-70 text-sm">Scegli il livello del corso per visualizzare i video delle figure.</p>
+                </div>
+
+                <div class="space-y-4">
+            `;
+
+            if (allowedLevels.length === 0) {
+                html += `<p class="opacity-50 text-sm text-center py-8">Nessun livello autorizzato per questo corso.</p>`;
+            } else {
+                allowedLevels.forEach(lvl => {
+                    const count = state.videos.filter(v => v.category === cat.id && v.level === lvl.id).length;
+                    html += `
+                        <div onclick="navigate('videos', '${cat.id}', '${lvl.id}')" class="glass-card group rounded-3xl p-5 cursor-pointer flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 rounded-2xl glass-card accent-text flex items-center justify-center text-xl shadow-inner flex-shrink-0">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold group-hover:opacity-80 transition">${lvl.name}</h3>
+                                    <p class="text-xs font-medium opacity-70 mt-0.5">${lvl.subtitle || ''}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <span class="text-xs font-semibold px-3 py-1 rounded-xl glass-card">${count} figure</span>
+                                <div class="w-9 h-9 rounded-2xl glass-card flex items-center justify-center group-hover:accent-bg group-hover:text-white transition">
+                                    <i class="fa-solid fa-chevron-right text-xs"></i>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            html += `</div>`;
+            return html;
+        }
+
+        function renderVideoList() {
+            const cat = state.categories.find(c => c.id === state.selectedCategory);
+            const lvlObj = cat && cat.levels ? cat.levels.find(l => l.id === state.selectedLevel) : null;
+            const lvlName = lvlObj ? lvlObj.name : state.selectedLevel;
+
+            const filteredVideos = state.videos.filter(v => v.category === state.selectedCategory && v.level === state.selectedLevel);
+
+            let html = `
+                <div class="mb-6 flex items-center justify-between">
+                    <button onclick="navigate('levels', '${state.selectedCategory}')" class="px-3.5 py-2 rounded-2xl glass-card text-xs font-semibold flex items-center space-x-2 transition shadow-inner">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span>Torna ai Livelli</span>
+                    </button>
+                    <div class="text-right">
+                        <span class="text-xs accent-text uppercase font-bold">${cat ? cat.name : ''}</span>
+                        <h4 class="text-xs font-medium opacity-70">${lvlName}</h4>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h2 class="text-2xl font-extrabold mb-1">Figure e Lezioni</h2>
+                    <p class="opacity-70 text-sm">Clicca su una figura per aprire il video dimostrativo.</p>
+                </div>
+            `;
+
+            if (filteredVideos.length === 0) {
+                html += `
+                    <div class="text-center py-16 glass-card rounded-3xl">
+                        <i class="fa-solid fa-video-slash text-4xl accent-text mb-3 animate-pulse"></i>
+                        <h3 class="text-lg font-bold">Nessun video disponibile</h3>
+                        <p class="opacity-60 text-xs mt-1">Non ci sono ancora video caricati per questo livello.</p>
+                        ${state.isAdmin ? `<button onclick="navigate('admin')" class="mt-4 px-4 py-2 accent-bg text-white rounded-xl text-xs font-semibold shadow-lg transition">Vai a Gestione</button>` : ''}
+                    </div>
+                `;
+            } else {
+                html += `<div class="grid grid-cols-1 gap-4">`;
+                filteredVideos.forEach(v => {
+                    const isFav = state.favorites.includes(v.id);
+                    html += `
+                        <div class="glass-card rounded-3xl p-4 flex items-center justify-between transition">
+                            <div class="flex items-center space-x-4 cursor-pointer flex-1 min-w-0" onclick="openVideoModal('${v.id}')">
+                                <div class="w-14 h-14 rounded-2xl glass-card accent-text flex items-center justify-center text-xl flex-shrink-0 shadow-inner">
+                                    <i class="fa-solid fa-play animate-pulse"></i>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <h3 class="font-bold text-sm sm:text-base truncate hover:opacity-80 transition">${v.title}</h3>
+                                    <p class="opacity-70 text-xs mt-0.5 line-clamp-1">${v.desc || 'Nessuna descrizione.'}</p>
+                                    <span class="inline-block mt-1 text-[11px] font-medium opacity-60"><i class="fa-regular fa-clock mr-1"></i> ${v.duration || '5 min'}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 ml-3 flex-shrink-0">
+                                <button onclick="toggleFavorite('${v.id}', event)" class="w-10 h-10 rounded-2xl glass-card ${isFav ? 'accent-text' : 'opacity-60'} flex items-center justify-center transition shadow-inner">
+                                    <i class="${isFav ? 'fa-solid' : 'fa-regular'} fa-heart text-sm"></i>
+                                </button>
+                                ${state.isAdmin ? `
+                                    <button onclick="deleteVideo('${v.id}', event)" class="w-10 h-10 rounded-xl glass-card text-rose-500 flex items-center justify-center transition shadow-inner" title="Elimina video">
+                                        <i class="fa-solid fa-trash-can text-sm"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            return html;
+        }
+
+        function renderFavorites() {
+            const favVideos = state.videos.filter(v => state.favorites.includes(v.id));
+
+            let html = `
+                <div class="mb-6">
+                    <h2 class="text-2xl font-extrabold mb-1"><i class="fa-solid fa-heart accent-text mr-2"></i> I Tuoi Preferiti</h2>
+                    <p class="opacity-70 text-sm">Tutte le figure che hai salvato per un rapido ripasso.</p>
+                </div>
+            `;
+
+            if (favVideos.length === 0) {
+                html += `
+                    <div class="text-center py-20 glass-card rounded-3xl">
+                        <i class="fa-regular fa-heart text-4xl accent-text mb-3"></i>
+                        <h3 class="text-lg font-bold">Nessun preferito salvato</h3>
+                        <p class="opacity-60 text-xs mt-1">Clicca sull'icona del cuore accanto ad una figura per aggiungerla qui.</p>
+                    </div>
+                `;
+            } else {
+                html += `<div class="grid grid-cols-1 gap-4">`;
+                favVideos.forEach(v => {
+                    const cat = state.categories.find(c => c.id === v.category);
+                    html += `
+                        <div class="glass-card rounded-3xl p-4 flex items-center justify-between transition">
+                            <div class="flex items-center space-x-4 cursor-pointer flex-1 min-w-0" onclick="openVideoModal('${v.id}')">
+                                <div class="w-14 h-14 rounded-2xl glass-card accent-text flex items-center justify-center text-xl flex-shrink-0 shadow-inner">
+                                    <i class="fa-solid fa-play"></i>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full glass-card accent-text uppercase">${cat ? cat.name : v.category}</span>
+                                        <span class="text-[10px] font-semibold opacity-60 uppercase">• ${v.level}</span>
+                                    </div>
+                                    <h3 class="font-bold text-sm sm:text-base truncate hover:opacity-80 transition mt-0.5">${v.title}</h3>
+                                    <p class="opacity-70 text-xs line-clamp-1">${v.desc || ''}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 ml-3 flex-shrink-0">
+                                <button onclick="toggleFavorite('${v.id}', event)" class="w-10 h-10 rounded-2xl glass-card accent-text flex items-center justify-center transition shadow-inner">
+                                    <i class="fa-solid fa-heart text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            return html;
+        }
+
+       function renderAdminPanel() {
+            let firstCatId = state.categories.length > 0 ? state.categories[0].id : '';
+            let firstCatName = state.categories.length > 0 ? state.categories[0].name : 'Seleziona corso';
+            let firstLevels = (state.categories.length > 0 && state.categories[0].levels) ? state.categories[0].levels : [];
+            let firstLvlId = firstLevels.length > 0 ? firstLevels[0].id : '';
+            let firstLvlName = firstLevels.length > 0 ? firstLevels[0].name : 'Nessun livello';
+
+            const pendingStudents = state.studentsList.filter(st => st.status !== 'approved');
+            const approvedStudents = state.studentsList.filter(st => st.status === 'approved');
+
+            let html = `
+                <div class="mb-6 flex items-center justify-between">
+                    <div>
+                        <span class="px-3.5 py-1 rounded-full glass-card accent-text text-xs font-bold uppercase tracking-wider shadow-inner">Cloud Admin Sincronizzato</span>
+                        <h2 class="text-2xl font-extrabold mt-2 mb-1">Gestione App & Contenuti</h2>
+                        <p class="opacity-70 text-sm">Crea corsi, gestisci le richieste e carica nuove lezioni.</p>
+                    </div>
+                </div>
+
+                <!-- SEZIONE 1: RICHIESTE DI ACCESSO IN ATTESA -->
+                <div class="glass-card rounded-3xl p-5 sm:p-6 mb-6 border-amber-500/30">
+                    <h3 class="text-lg font-bold mb-4 flex items-center justify-between border-b pb-3" style="border-color: var(--card-border);">
+                        <span class="flex items-center space-x-2">
+                            <i class="fa-solid fa-clock-rotate-left text-amber-400"></i>
+                            <span>Richieste in Attesa</span>
+                        </span>
+                        <span class="text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 font-bold">${pendingStudents.length}</span>
+                    </h3>
+                    <div class="space-y-3">
+            `;
+
+            if (pendingStudents.length === 0) {
+                html += `<p class="text-xs opacity-60 text-center py-4">Nessuna nuova richiesta in attesa.</p>`;
+            } else {
+                pendingStudents.forEach(st => {
+                    let subsText = st.subscriptions ? Object.entries(st.subscriptions).map(([cId, lId]) => {
+                        let cObj = state.categories.find(c => c.id === cId);
+                        let lObj = cObj?.levels?.find(l => l.id === lId);
+                        return `${cObj?.name || cId} (${lObj?.name || lId})`;
+                    }).join(', ') : 'Nessun corso';
+
+                    html += `
+                        <div class="p-4 rounded-2xl glass-card space-y-2 border border-amber-500/20">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                    <h4 class="font-bold text-sm">Richiesta da: <span class="accent-text">@${st.username}</span></h4>
+                                    <p class="text-xs opacity-70 mt-0.5">Corsi richiesti: <span class="accent-text font-semibold">${subsText}</span></p>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <button onclick="openEditStudentModal('${st.id}')" class="px-3 py-1.5 glass-card rounded-xl text-xs font-semibold accent-text">Modifica</button>
+                                    <button onclick="approveStudent('${st.id}')" class="px-3.5 py-1.5 accent-bg text-white rounded-xl text-xs font-semibold shadow">Accetta</button>
+                                    <button onclick="deleteStudent('${st.id}')" class="px-3.5 py-1.5 glass-card text-rose-500 rounded-xl text-xs font-semibold">Rifiuta</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            html += `
+                    </div>
+                </div>
+
+                <!-- SEZIONE 2: STUDENTI ACCETTATI -->
+                <div class="glass-card rounded-3xl p-5 sm:p-6 mb-8">
+                    <h3 class="text-lg font-bold mb-4 flex items-center justify-between border-b pb-3" style="border-color: var(--card-border);">
+                        <span class="flex items-center space-x-2">
+                            <i class="fa-solid fa-users accent-text"></i>
+                            <span>Studenti Accettati</span>
+                        </span>
+                        <span class="text-xs px-2.5 py-1 rounded-full glass-card accent-text font-bold">${approvedStudents.length}</span>
+                    </h3>
+                    <div class="space-y-3">
+            `;
+
+            if (approvedStudents.length === 0) {
+                html += `<p class="text-xs opacity-60 text-center py-4">Nessuno studente accettato al momento.</p>`;
+            } else {
+                approvedStudents.forEach(st => {
+                    let subsText = st.subscriptions ? Object.entries(st.subscriptions).map(([cId, lId]) => {
+                        let cObj = state.categories.find(c => c.id === cId);
+                        let lObj = cObj?.levels?.find(l => l.id === lId);
+                        return `${cObj?.name || cId} (${lObj?.name || lId})`;
+                    }).join(', ') : 'Nessun corso';
+
+                    html += `
+                        <div class="p-4 rounded-2xl glass-card space-y-2">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                    <h4 class="font-bold text-sm">Studente: <span class="accent-text">@${st.username}</span></h4>
+                                    <p class="text-xs opacity-70 mt-0.5">Corsi abilitati: <span class="accent-text font-semibold">${subsText}</span></p>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <button onclick="openEditStudentModal('${st.id}')" class="px-3 py-1.5 glass-card rounded-xl text-xs font-semibold accent-text">Modifica Corsi</button>
+                                    <button onclick="deleteStudent('${st.id}')" class="px-3.5 py-1.5 glass-card text-rose-500 rounded-xl text-xs font-semibold">Rimuovi</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            html += `
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-3xl p-5 sm:p-6 mb-8">
+                    <h3 class="text-lg font-bold mb-4 flex items-center space-x-2 border-b pb-3" style="border-color: var(--card-border);">
+                        <i class="fa-solid fa-circle-plus accent-text"></i>
+                        <span>Carica Video Lezione</span>
+                    </h3>
+                    <form onsubmit="handleVideoUpload(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Titolo della Figura</label>
+                            <input type="text" id="form-title" required placeholder="Es. Enchufla Doble" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Corso</label>
+                                <div class="custom-select-wrapper" id="select-wrapper-category">
+                                    <input type="hidden" id="form-category" value="${firstCatId}">
+                                    <div class="custom-select-trigger" onclick="toggleCustomSelect('category')">
+                                        <span id="trigger-label-category">${firstCatName}</span>
+                                        <i class="fa-solid fa-chevron-down text-xs opacity-70 ml-2"></i>
+                                    </div>
+                                    <div class="custom-select-options modal-box" id="options-category">
+                                        ${state.categories.map(c => `
+                                            <div class="custom-option ${c.id === firstCatId ? 'selected' : ''}" onclick="selectCustomOption('category', '${c.id}', '${c.name.replace(/'/g, "\\'")}')">
+                                                <span>${c.name}</span>${c.id === firstCatId ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Livello</label>
+                                <div class="custom-select-wrapper" id="select-wrapper-level">
+                                    <input type="hidden" id="form-level" value="${firstLvlId}">
+                                    <div class="custom-select-trigger" onclick="toggleCustomSelect('level')">
+                                        <span id="trigger-label-level">${firstLvlName}</span>
+                                        <i class="fa-solid fa-chevron-down text-xs opacity-70 ml-2"></i>
+                                    </div>
+                                    <div class="custom-select-options modal-box" id="options-level">
+                                        ${firstLevels.map(l => `
+                                            <div class="custom-option ${l.id === firstLvlId ? 'selected' : ''}" onclick="selectCustomOption('level', '${l.id}', '${l.name.replace(/'/g, "\\'")}')">
+                                                <span>${l.name}</span>${l.id === firstLvlId ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">File Video (MP4, WebM)</label>
+                            <input type="file" id="form-file" accept="video/*" required class="custom-input custom-file-input w-full rounded-2xl px-4 py-2.5 text-sm outline-none transition cursor-pointer shadow-inner">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Durata stimata (es. 5:20)</label>
+                            <input type="text" id="form-duration" placeholder="5:00" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Note e Descrizione Maestri</label>
+                            <textarea id="form-desc" rows="3" placeholder="Dettagli sulla presa o tempo musicale..." class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition resize-none shadow-inner"></textarea>
+                        </div>
+
+                        <button type="submit" class="w-full py-3.5 accent-bg text-white font-bold rounded-2xl text-sm shadow-xl transition transform active:scale-95">
+                            Carica e Pubblica Lezione
+                        </button>
+                    </form>
+                </div>
+
+                <div class="glass-card rounded-3xl p-5 sm:p-6 mb-8">
+                    <div class="flex items-center justify-between mb-4 border-b pb-3" style="border-color: var(--card-border);">
+                        <h3 class="text-lg font-bold flex items-center space-x-2">
+                            <i class="fa-solid fa-list-check accent-text"></i>
+                            <span>Gestisci Corsi e Livelli Cloud</span>
+                        </h3>
+                        <button onclick="openCourseModal()" class="px-3.5 py-2 glass-card accent-text rounded-2xl text-xs font-semibold transition shadow-inner">
+                            <i class="fa-solid fa-plus mr-1"></i> Nuovo Corso
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+            `;
+
+            state.categories.forEach(cat => {
+                html += `
+                    <div class="p-4 rounded-2xl glass-card shadow-inner">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <h4 class="font-bold text-base">${cat.name}</h4>
+                                <p class="text-xs opacity-70">${cat.desc || ''}</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="openCourseModal('${cat.id}')" class="px-3.5 py-1.5 glass-card rounded-xl text-xs font-semibold transition">Modifica</button>
+                                <button onclick="deleteCourse('${cat.id}')" class="px-3.5 py-1.5 glass-card rounded-xl text-rose-500 text-xs font-semibold transition">Elimina</button>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-3 border-t flex flex-wrap gap-2 items-center" style="border-color: var(--card-border);">
+                            <span class="text-xs opacity-70 font-bold uppercase">Livelli:</span>
+                            ${cat.levels && cat.levels.length > 0 ? cat.levels.map(l => `
+                                <span class="px-3 py-1 rounded-xl glass-card text-xs font-medium flex items-center space-x-2 shadow-inner">
+                                    <span>${l.name}</span>
+                                    <button onclick="deleteLevel('${cat.id}', '${l.id}')" class="text-rose-500 hover:opacity-80 ml-1"><i class="fa-solid fa-xmark"></i></button>
+                                </span>
+                            `).join('') : '<span class="text-xs opacity-40">Nessun livello</span>'}
+                            <button onclick="openLevelModal('${cat.id}')" class="px-3 py-1 rounded-2xl glass-card accent-text text-xs font-semibold transition">
+                                <i class="fa-solid fa-plus mr-1"></i> Aggiungi Livello
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+            return html;
+        }
+
+        function toggleCustomSelect(type) {
+            const optionsEl = document.getElementById(`options-${type}`);
+            const wrapper = optionsEl.closest('.custom-select-wrapper');
+            
+            // Chiudi tutti gli altri menu e resetta
+            document.querySelectorAll('.custom-select-options').forEach(el => {
+                if(el !== optionsEl) {
+                    el.style.display = 'none';
+                    el.style.top = '';
+                    el.style.bottom = '';
+                    const parentCard = el.closest('.glass-card');
+                    if(parentCard) parentCard.style.zIndex = '1';
+                }
+            });
+
+            const parentCard = optionsEl.closest('.glass-card');
+
+            if (optionsEl.style.display === 'block') {
+                optionsEl.style.display = 'none';
+                optionsEl.style.top = '';
+                optionsEl.style.bottom = '';
+                if(parentCard) parentCard.style.zIndex = '1';
+            } else {
+                // Calcola lo spazio disponibile rispetto al fondo della finestra o del modale
+                optionsEl.style.display = 'block';
+                const rect = optionsEl.getBoundingClientRect();
+                const windowHeight = window.innerHeight;
+
+                // Se esce dallo schermo in basso (lasciando un margine di 20px), aprilo verso l'alto
+                if (rect.bottom > windowHeight - 20) {
+                    optionsEl.style.bottom = 'calc(100% + 8px)';
+                    optionsEl.style.top = 'auto';
+                } else {
+                    optionsEl.style.top = 'calc(100% + 8px)';
+                    optionsEl.style.bottom = 'auto';
+                }
+
+                if(parentCard) parentCard.style.zIndex = '100';
+            }
+        }
+
+        function selectCustomOption(type, value, name) {
+            document.getElementById(`form-${type}`).value = value;
+            document.getElementById(`trigger-label-${type}`).innerText = name;
+            document.getElementById(`options-${type}`).style.display = 'none';
+
+            const container = document.getElementById(`options-${type}`);
+            container.querySelectorAll('.custom-option').forEach(opt => {
+                opt.classList.remove('selected');
+                const check = opt.querySelector('i.fa-check');
+                if(check) check.remove();
+            });
+
+            event.currentTarget.classList.add('selected');
+            event.currentTarget.innerHTML += '<i class="fa-solid fa-check text-xs"></i>';
+
+            if (type === 'category') {
+                updateAdminLevelsSelectCustom(value);
+            }
+        }
+
+        function updateAdminLevelsSelectCustom(catId) {
+            const cat = state.categories.find(c => c.id === catId);
+            const levelOptionsContainer = document.getElementById('options-level');
+            const levelInput = document.getElementById('form-level');
+            const levelTriggerLabel = document.getElementById('trigger-label-level');
+
+            if (!cat || !cat.levels || cat.levels.length === 0) {
+                levelInput.value = '';
+                levelTriggerLabel.innerText = 'Nessun livello';
+                levelOptionsContainer.innerHTML = '<div class="custom-option"><span>Nessun livello</span></div>';
+                return;
+            }
+
+            const firstLvl = cat.levels[0];
+            levelInput.value = firstLvl.id;
+            levelTriggerLabel.innerText = firstLvl.name;
+
+            levelOptionsContainer.innerHTML = cat.levels.map(l => `
+                <div class="custom-option ${l.id === firstLvl.id ? 'selected' : ''}" onclick="selectCustomOption('level', '${l.id}', '${l.name.replace(/'/g, "\\'")}')">
+                    <span>${l.name}</span>
+                    ${l.id === firstLvl.id ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
+                </div>
+            `).join('');
+        }
+
+        window.addEventListener('click', (e) => {
+            if (!e.target.closest('.custom-select-wrapper') && !e.target.closest('button[onclick="toggleThemeMenu()"]')) {
+                document.querySelectorAll('.custom-select-options').forEach(el => {
+                    el.style.display = 'none';
+                });
+                document.getElementById('theme-dropdown').classList.add('hidden');
+            }
+        });
+
+        let promptCallback = null;
+
+        function showCustomPrompt(title, desc, defaultValue = '', callback) {
+            const modal = document.getElementById('custom-prompt-modal');
+            const titleEl = document.getElementById('custom-prompt-title');
+            const descEl = document.getElementById('custom-prompt-desc');
+            const inputEl = document.getElementById('custom-prompt-input');
+
+            titleEl.innerText = title;
+            descEl.innerText = desc;
+            inputEl.value = defaultValue;
+            promptCallback = callback;
+
+            modal.classList.remove('hidden');
+            inputEl.focus();
+        }
+        let confirmCallback = null;
+
+        function showConfirmModal(title, desc, callback) {
+            const modal = document.getElementById('custom-prompt-modal');
+            const titleEl = document.getElementById('custom-prompt-title');
+            const descEl = document.getElementById('custom-prompt-desc');
+            const inputEl = document.getElementById('custom-prompt-input');
+
+            titleEl.innerText = title;
+            descEl.innerText = desc;
+            
+            // Nascondiamo l'input di testo poiché serve solo una conferma (OK / Annulla)
+            inputEl.style.display = 'none';
+            confirmCallback = callback;
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeCustomPrompt(confirmed) {
+            const modal = document.getElementById('custom-prompt-modal');
+            const inputEl = document.getElementById('custom-prompt-input');
+            modal.classList.add('hidden');
+            
+            // Ripristina l'input nel caso fosse stato nascosto dalla modale di conferma
+            inputEl.style.display = 'block';
+
+            if (confirmed) {
+                if (promptCallback) {
+                    promptCallback(inputEl.value.trim());
+                } else if (confirmCallback) {
+                    confirmCallback();
+                }
+            }
+            promptCallback = null;
+            confirmCallback = null;
+        }
+
+        async function openCourseModal(courseId = null) {
+            let course = courseId ? state.categories.find(c => c.id === courseId) : null;
+            
+            showCustomPrompt("Gestione Corso", "Inserisci il nome del corso:", course ? course.name : "", async (name) => {
+                if (!name) return;
+                showCustomPrompt("Gestione Corso", "Inserisci una breve descrizione:", course ? course.desc : "", async (desc) => {
+                    if (course) {
+                        course.name = name;
+                        course.desc = desc;
+                    } else {
+                        const newId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                        state.categories.push({
+                            id: newId,
+                            name: name,
+                            desc: desc || 'Nuovo corso',
+                            icon: 'fa-music',
+                            levels: [
+                                { id: 'base', name: 'Base', subtitle: 'Livello base' }
+                            ]
+                        });
+                    }
+                    await saveCategoriesToCloud();
+                    showToast('Corsi aggiornati nel Cloud!', 'success');
+                    render();
+                });
+            });
+        }
+
+        async function deleteCourse(courseId) {
+            if (confirm("Vuoi davvero eliminare questo corso e tutti i suoi video dal Cloud?")) {
+                state.categories = state.categories.filter(c => c.id !== courseId);
+                state.videos = state.videos.filter(v => v.category !== courseId);
+                await saveCategoriesToCloud();
+                await supabaseClient.from('videos').delete().eq('category', courseId);
+                showToast('Corso eliminato dal Cloud', 'info');
+                render();
+            }
+        }
+
+        async function openLevelModal(courseId) {
+            const course = state.categories.find(c => c.id === courseId);
+            if (!course) return;
+
+            showCustomPrompt("Aggiungi Livello", "Inserisci il nome del livello (es. Primo Intermedio):", "", async (lvlName) => {
+                if (!lvlName) return;
+                showCustomPrompt("Aggiungi Livello", "Inserisci una breve descrizione del livello:", "Figure e combinazioni", async (lvlSub) => {
+                    const lvlId = lvlName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                    if (!course.levels) course.levels = [];
+                    
+                    if (course.levels.some(l => l.id === lvlId)) {
+                        showToast("Un livello con questo nome esiste già!", "error");
+                        return;
+                    }
+
+                    course.levels.push({
+                        id: lvlId,
+                        name: lvlName,
+                        subtitle: lvlSub
+                    });
+
+                    await saveCategoriesToCloud();
+                    showToast('Livello aggiunto nel Cloud', 'success');
+                    render();
+                });
+            });
+        }
+
+        async function deleteLevel(courseId, levelId) {
+            const course = state.categories.find(c => c.id === courseId);
+            if (!course) return;
+
+            if (confirm("Vuoi rimuovere questo livello?")) {
+                course.levels = course.levels.filter(l => l.id !== levelId);
+                await saveCategoriesToCloud();
+                showToast('Livello rimosso dal Cloud', 'info');
+                render();
+            }
+        }
+
+        async function handleVideoUpload(e) {
+            e.preventDefault();
+            const title = document.getElementById('form-title').value;
+            const category = document.getElementById('form-category').value;
+            const level = document.getElementById('form-level').value;
+            const fileInput = document.getElementById('form-file');
+            const duration = document.getElementById('form-duration').value || '5:00';
+            const desc = document.getElementById('form-desc').value;
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showToast('Seleziona un file video da caricare', 'error');
+                return;
+            }
+
+            const videoFile = fileInput.files[0];
+            const localVideoUrl = URL.createObjectURL(videoFile);
+
+            const newVideoRecord = {
+                title,
+                category,
+                level,
+                url: localVideoUrl,
+                duration,
+                description: desc
+            };
+
+            let { error } = await supabaseClient.from('videos').insert([newVideoRecord]).select();
+            if (error) {
+                showToast('Errore durante il salvataggio su Supabase', 'error');
+                console.error(error);
+            } else {
+                showToast('Lezione caricata con successo!', 'success');
+                await loadDataFromCloud();
+                navigate('videos', category, level);
+            }
+        }
+
+        async function deleteVideo(id, e) {
+            if (e) e.stopPropagation();
+            if (confirm('Sei sicuro di voler eliminare questa lezione?')) {
+                let { error } = await supabaseClient.from('videos').delete().eq('id', id);
+                if (error) {
+                    showToast('Errore durante eliminazione', 'error');
+                } else {
+                    state.videos = state.videos.filter(v => v.id !== id);
+                    showToast('Lezione eliminata', 'info');
+                    render();
+                }
+            }
+        }
+
+        function toggleFavorite(id, e) {
+            if (e) e.stopPropagation();
+            const index = state.favorites.indexOf(id);
+            if (index > -1) {
+                state.favorites.splice(index, 1);
+                showToast('Rimosso dai preferiti', 'info');
+            } else {
+                state.favorites.push(id);
+                showToast('Aggiunto ai preferiti', 'success');
+            }
+            localStorage.setItem('baila_favorites', JSON.stringify(state.favorites));
+            render();
+            if (state.currentVideoModal === id) {
+                updateModalFavBtn();
+            }
+        }
+
+        function toggleFavoriteFromModal() {
+            if (state.currentVideoModal) {
+                toggleFavorite(state.currentVideoModal);
+            }
+        }
+
+        function updateModalFavBtn() {
+            const btn = document.getElementById('modal-fav-btn');
+            const isFav = state.favorites.includes(state.currentVideoModal);
+            if (isFav) {
+                btn.innerHTML = '<i class="fa-solid fa-heart accent-text"></i><span>Preferito</span>';
+            } else {
+                btn.innerHTML = '<i class="fa-regular fa-heart"></i><span>Preferito</span>';
+            }
+        }
+
+        function openVideoModal(id) {
+            const video = state.videos.find(v => v.id === id);
+            if (!video) return;
+            state.currentVideoModal = id;
+
+            const modal = document.getElementById('video-modal');
+            const container = document.getElementById('player-container');
+            const titleEl = document.getElementById('modal-title');
+            const badgeEl = document.getElementById('modal-badge');
+            const catEl = document.getElementById('modal-category');
+            const durEl = document.getElementById('modal-duration');
+            const descEl = document.getElementById('modal-desc');
+
+            const cat = state.categories.find(c => c.id === video.category);
+            const lvlObj = cat && cat.levels ? cat.levels.find(l => l.id === video.level) : null;
+
+            titleEl.innerText = video.title;
+            catEl.innerText = cat ? cat.name : video.category;
+            durEl.innerHTML = `<i class="fa-regular fa-clock mr-1"></i> Durata: ${video.duration || '5 min'}`;
+            descEl.innerText = video.desc || 'Nessuna nota aggiuntiva fornita dai maestri.';
+            
+            badgeEl.innerText = lvlObj ? lvlObj.name : video.level;
+
+            if (video.url.startsWith('blob:') || video.url.endsWith('.mp4') || video.url.endsWith('.webm')) {
+                container.innerHTML = `
+                    <video src="${video.url}" class="w-full h-full absolute inset-0 object-contain bg-black" controls autoplay playsinline></video>
+                `;
+            } else {
+                container.innerHTML = `
+                    <iframe src="${video.url}" class="w-full h-full absolute inset-0 border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                `;
+            }
+
+            updateModalFavBtn();
+            modal.classList.remove('hidden');
+        }
+
+        function closeVideoModal() {
+            const modal = document.getElementById('video-modal');
+            const container = document.getElementById('player-container');
+            container.innerHTML = '';
+            modal.classList.add('hidden');
+            state.currentVideoModal = null;
+        }
+
+        function toggleSearchModal(show) {
+            const modal = document.getElementById('search-modal');
+            const input = document.getElementById('global-search-input');
+            if (show) {
+                modal.classList.remove('hidden');
+                input.focus();
+            } else {
+                modal.classList.add('hidden');
+                input.value = '';
+                document.getElementById('search-results').innerHTML = '<p class="text-center opacity-50 text-sm py-8">Inizia a digitare per cercare tra tutte le lezioni...</p>';
+            }
+        }
+
+        function handleGlobalSearch(query) {
+            const resultsContainer = document.getElementById('search-results');
+            if (!query.trim()) {
+                resultsContainer.innerHTML = '<p class="text-center opacity-50 text-sm py-8">Inizia a digitare per cercare tra tutte le lezioni...</p>';
+                return;
+            }
+
+            const q = query.toLowerCase();
+            const matches = state.videos.filter(v => 
+                v.title.toLowerCase().includes(q) || 
+                (v.desc && v.desc.toLowerCase().includes(q)) ||
+                v.category.toLowerCase().includes(q)
+            );
+
+            if (matches.length === 0) {
+                resultsContainer.innerHTML = `<p class="text-center opacity-50 text-sm py-8">Nessun risultato trovato per "${query}"</p>`;
+                return;
+            }
+
+            let html = '';
+            matches.forEach(v => {
+                const cat = state.categories.find(c => c.id === v.category);
+                html += `
+                    <div onclick="toggleSearchModal(false); openVideoModal('${v.id}')" class="p-3.5 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-inner glass-card">
+                        <div>
+                            <div class="flex items-center space-x-2 mb-1">
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full glass-card accent-text uppercase">${cat ? cat.name : v.category}</span>
+                                <span class="text-[10px] font-semibold opacity-60 uppercase">• ${v.level}</span>
+                            </div>
+                            <h4 class="font-bold text-sm">${v.title}</h4>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs accent-text"></i>
+                    </div>
+                `;
+            });
+            resultsContainer.innerHTML = html;
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const msgEl = document.getElementById('toast-msg');
+            const iconEl = document.getElementById('toast-icon');
+
+            msgEl.innerText = msg;
+            iconEl.className = type === 'success' ? 'fa-solid fa-circle-check accent-text text-lg' : 'fa-solid fa-circle-info text-blue-400 text-lg';
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        async function approveStudent(userId) {
+            let { error } = await supabaseClient.from('profiles').update({ status: 'approved' }).eq('id', userId);
+            if (!error) {
+                showToast('Studente approvato con successo!', 'success');
+                await loadDataFromCloud();
+                render();
+            } else {
+                showToast('Errore durante l\'approvazione', 'error');
+            }
+        }
+
+        async function deleteStudent(userId) {
+            if (confirm('Vuoi rimuovere/rifiutare questo studente?')) {
+                let { error } = await supabaseClient.from('profiles').delete().eq('id', userId);
+                if (!error) {
+                    showToast('Richiesta rifiutata/rimossa', 'info');
+                    await loadDataFromCloud();
+                    render();
+                } else {
+                    showToast('Errore durante l\'eliminazione', 'error');
+                }
+            }
+        }
+
+        async function openEditStudentModal(userId) {
+            const student = state.studentsList.find(s => s.id === userId);
+            if (!student) return;
+
+            document.getElementById('edit-student-id').value = student.id;
+            document.getElementById('edit-student-title').innerText = `Modifica i corsi e livelli per @${student.username}`;
+
+            let subs = student.subscriptions || {};
+            let container = document.getElementById('edit-student-courses-container');
+            let html = '';
+
+            state.categories.forEach(cat => {
+                let isChecked = !!subs[cat.id];
+                let currentLvlId = subs[cat.id] || (cat.levels[0] ? cat.levels[0].id : 'base');
+                let currentLvlObj = cat.levels?.find(l => l.id === currentLvlId) || cat.levels[0] || { name: 'Base' };
+
+                html += `
+                    <div class="p-3 rounded-2xl glass-card space-y-2">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" name="edit-course" value="${cat.id}" ${isChecked ? 'checked' : ''} onchange="toggleEditLevels('${cat.id}', this.checked)" class="rounded accent-pink-500">
+                            <span class="font-bold text-xs">${cat.name}</span>
+                        </label>
+                        <div id="edit-levels-${cat.id}" class="${isChecked ? '' : 'hidden'} pl-5 space-y-1">
+                            <span class="text-[10px] opacity-70 uppercase block font-semibold">Livello massimo consentito:</span>
+                            
+                            <div class="custom-select-wrapper" id="select-wrapper-edit-${cat.id}">
+                                <input type="hidden" id="edit-level-select-${cat.id}" value="${currentLvlId}">
+                                <div class="custom-select-trigger" onclick="toggleCustomSelect('edit-${cat.id}')">
+                                    <span id="trigger-label-edit-${cat.id}">${currentLvlObj.name}</span>
+                                    <i class="fa-solid fa-chevron-down text-xs opacity-70 ml-2"></i>
+                                </div>
+                                <div class="custom-select-options modal-box" id="options-edit-${cat.id}">
+                                    ${cat.levels.map(l => `
+                                        <div class="custom-option ${l.id === currentLvlId ? 'selected' : ''}" onclick="selectEditOption('${cat.id}', '${l.id}', '${l.name.replace(/'/g, "\\'")}')">
+                                            <span>${l.name}</span>${l.id === currentLvlId ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            document.getElementById('edit-student-modal').classList.remove('hidden');
+        }
+
+        function selectEditOption(catId, value, name) {
+            document.getElementById(`edit-level-select-${catId}`).value = value;
+            document.getElementById(`trigger-label-edit-${catId}`).innerText = name;
+            document.getElementById(`options-edit-${catId}`).style.display = 'none';
+
+            const container = document.getElementById(`options-edit-${catId}`);
+            container.querySelectorAll('.custom-option').forEach(opt => {
+                opt.classList.remove('selected');
+                const check = opt.querySelector('i.fa-check');
+                if(check) check.remove();
+            });
+
+            event.currentTarget.classList.add('selected');
+            event.currentTarget.innerHTML += '<i class="fa-solid fa-check text-xs"></i>';
+        }
+
+        function toggleEditLevels(catId, isChecked) {
+            const el = document.getElementById(`edit-levels-${catId}`);
+            if (isChecked) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+        }
+
+        function closeEditStudentModal() {
+            document.getElementById('edit-student-modal').classList.add('hidden');
+        }
+
+        async function saveStudentPermissions() {
+            const userId = document.getElementById('edit-student-id').value;
+            let subscriptions = {};
+
+            document.querySelectorAll('input[name="edit-course"]:checked').forEach(chk => {
+                let cId = chk.value;
+                let lvlSel = document.getElementById(`edit-level-select-${cId}`);
+                subscriptions[cId] = lvlSel ? lvlSel.value : 'base';
+            });
+
+            let { error } = await supabaseClient.from('profiles').update({ subscriptions: subscriptions, status: 'approved' }).eq('id', userId);
+            if (!error) {
+                showToast('Permessi aggiornati e studente approvato!', 'success');
+                closeEditStudentModal();
+                await loadDataFromCloud();
+                render();
+            } else {
+                showToast('Errore durante il salvataggio', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
