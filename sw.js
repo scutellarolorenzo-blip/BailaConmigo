@@ -1,4 +1,6 @@
+
 const CACHE_NAME = 'bailaconmigo-v1.1.1';
+
 
 self.addEventListener('install', (e) => {
     self.skipWaiting();
