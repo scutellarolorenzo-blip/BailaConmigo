@@ -1572,9 +1572,10 @@
             const fileName = `lesson_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
 
             showToast('Caricamento video in corso...', 'info');
+            console.log("Inizio upload del file:", fileName);
 
             try {
-                // Caricamento nel Supabase Storage bucket 'videos'
+                // 1. Caricamento nel bucket Supabase Storage
                 let { data: uploadData, error: uploadErr } = await supabaseClient.storage
                     .from('videos')
                     .upload(fileName, videoFile, {
@@ -1583,15 +1584,19 @@
                     });
 
                 if (uploadErr) {
-                    console.error("Errore Storage Supabase:", uploadErr);
+                    console.error("ERRORE STORAGE SUPABASE:", uploadErr);
                     showToast('Errore Storage: ' + uploadErr.message, 'error');
                     return;
                 }
 
-                // Ottieni l'URL pubblico del file caricato
+                console.log("File caricato con successo nello Storage:", uploadData);
+
+                // 2. Ottieni l'URL pubblico
                 let { data: { publicUrl } } = supabaseClient.storage
                     .from('videos')
                     .getPublicUrl(fileName);
+
+                console.log("URL pubblico generato:", publicUrl);
 
                 const newVideoRecord = {
                     title,
@@ -1602,11 +1607,14 @@
                     description: desc
                 };
 
+                // 3. Salva il record nella tabella database 'videos'
                 let { error: insertErr } = await supabaseClient.from('videos').insert([newVideoRecord]);
+                
                 if (insertErr) {
-                    console.error("Errore Database Supabase:", insertErr);
+                    console.error("ERRORE DATABASE SUPABASE:", insertErr);
                     showToast('Errore salvataggio database: ' + insertErr.message, 'error');
                 } else {
+                    console.log("Video salvato correttamente nel database!");
                     showToast('Lezione caricata con successo!', 'success');
                     document.getElementById('form-title').value = '';
                     document.getElementById('form-duration').value = '';
@@ -1616,8 +1624,8 @@
                     navigate('videos', category, level);
                 }
             } catch (err) {
-                console.error("Errore imprevisto upload:", err);
-                showToast('Errore imprevisto durante l\'upload', 'error');
+                console.error("ERRORE IMPREVISTO UPLOAD:", err);
+                showToast('Errore imprevisto durante l\'upload (vedi console F12)', 'error');
             }
         }
 
