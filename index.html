@@ -1568,7 +1568,6 @@
             const duration = document.getElementById('form-duration').value || '5:00';
             const desc = document.getElementById('form-desc').value;
 
-            if (!videoUrl) {
             if (!fileInput.files || fileInput.files.length === 0) {
                 showToast('Seleziona un file video da caricare', 'error');
                 return;
