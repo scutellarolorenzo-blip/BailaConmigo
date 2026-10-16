@@ -237,8 +237,8 @@
 
             <form onsubmit="processAuth(event)" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80" id="label-username">Nome e Cognome (o Email Admin)</label>
-                    <input type="text" id="auth-username" required placeholder="Es. Mario Rossi" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                    <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">File Video (MP4, WebM)</label>
+                    <input type="file" id="form-file" accept="video/*" required class="custom-input custom-file-input w-full rounded-2xl px-4 py-2.5 text-sm outline-none transition cursor-pointer shadow-inner">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Password</label>
@@ -1564,20 +1564,44 @@
             const title = document.getElementById('form-title').value;
             const category = document.getElementById('form-category').value;
             const level = document.getElementById('form-level').value;
-            const videoUrl = document.getElementById('form-video-url').value.trim();
+            const fileInput = document.getElementById('form-file');
             const duration = document.getElementById('form-duration').value || '5:00';
             const desc = document.getElementById('form-desc').value;
 
             if (!videoUrl) {
-                showToast('Inserisci un link video valido', 'error');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showToast('Seleziona un file video da caricare', 'error');
                 return;
             }
+
+            const videoFile = fileInput.files[0];
+            const fileExt = videoFile.name.split('.').pop();
+            const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            showToast('Caricamento video in corso...', 'info');
+
+            // Caricamento del file nel Supabase Storage bucket 'videos'
+            let { data: uploadData, error: uploadErr } = await supabaseClient.storage
+                .from('videos')
+                .upload(filePath, videoFile);
+
+            if (uploadErr) {
+                showToast('Errore caricamento file nello Storage: ' + uploadErr.message, 'error');
+                console.error(uploadErr);
+                return;
+            }
+
+            // Ottieni l'URL pubblico del file caricato
+            let { data: { publicUrl } } = supabaseClient.storage
+                .from('videos')
+                .getPublicUrl(filePath);
 
             const newVideoRecord = {
                 title,
                 category,
                 level,
-                url: videoUrl,
+                url: publicUrl,
                 duration,
                 description: desc
             };
