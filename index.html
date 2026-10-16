@@ -1575,44 +1575,55 @@
 
             const videoFile = fileInput.files[0];
             const fileExt = videoFile.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-            const filePath = `${fileName}`;
+            const fileName = `lesson_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
 
             showToast('Caricamento video in corso...', 'info');
 
-            // Caricamento del file nel Supabase Storage bucket 'videos'
-            let { data: uploadData, error: uploadErr } = await supabaseClient.storage
-                .from('videos')
-                .upload(filePath, videoFile);
+            try {
+                // Caricamento nel Supabase Storage bucket 'videos'
+                let { data: uploadData, error: uploadErr } = await supabaseClient.storage
+                    .from('videos')
+                    .upload(fileName, videoFile, {
+                        cacheControl: '3600',
+                        upsert: false
+                    });
 
-            if (uploadErr) {
-                showToast('Errore caricamento file nello Storage: ' + uploadErr.message, 'error');
-                console.error(uploadErr);
-                return;
-            }
+                if (uploadErr) {
+                    console.error(uploadErr);
+                    showToast('Errore Storage: ' + uploadErr.message, 'error');
+                    return;
+                }
 
-            // Ottieni l'URL pubblico del file caricato
-            let { data: { publicUrl } } = supabaseClient.storage
-                .from('videos')
-                .getPublicUrl(filePath);
+                // Ottieni l'URL pubblico del file
+                let { data: { publicUrl } } = supabaseClient.storage
+                    .from('videos')
+                    .getPublicUrl(fileName);
 
-            const newVideoRecord = {
-                title,
-                category,
-                level,
-                url: publicUrl,
-                duration,
-                description: desc
-            };
+                const newVideoRecord = {
+                    title,
+                    category,
+                    level,
+                    url: publicUrl,
+                    duration,
+                    description: desc
+                };
 
-            let { error } = await supabaseClient.from('videos').insert([newVideoRecord]).select();
-            if (error) {
-                showToast('Errore durante il salvataggio su Supabase', 'error');
-                console.error(error);
-            } else {
-                showToast('Lezione caricata con successo!', 'success');
-                await loadDataFromCloud();
-                navigate('videos', category, level);
+                let { error: insertErr } = await supabaseClient.from('videos').insert([newVideoRecord]);
+                if (insertErr) {
+                    console.error(insertErr);
+                    showToast('Errore salvataggio database: ' + insertErr.message, 'error');
+                } else {
+                    showToast('Lezione caricata con successo!', 'success');
+                    document.getElementById('form-title').value = '';
+                    document.getElementById('form-duration').value = '';
+                    document.getElementById('form-desc').value = '';
+                    fileInput.value = '';
+                    await loadDataFromCloud();
+                    navigate('videos', category, level);
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Errore imprevisto durante l\'upload', 'error');
             }
         }
 
@@ -1621,10 +1632,18 @@
             if (confirm('Sei sicuro di voler eliminare questa lezione?')) {
                 let { error } = await supabaseClient.from('videos').delete().eq('id', id);
                 if (error) {
-                    showToast('Errore durante eliminazione', 'error');
+                    showToast('Errore durante eliminazione: ' + error.message, 'error');
                 } else {
-                    state.videos = state.videos.filter(v => v.id !== id);
-                    showToast('Lezione eliminata', 'info');
+                    state.videos = state.videos.filter(v => v.id.toString() !== id.toString());
+                    // Rimuovi dai preferiti se era salvato
+                    state.favorites = state.favorites.filter(favId => favId.toString() !== id.toString());
+                    if (state.user && !state.isAdmin) {
+                        await supabaseClient
+                            .from('profiles')
+                            .update({ favorites: state.favorites })
+                            .eq('id', state.user.id);
+                    }
+                    showToast('Lezione eliminata con successo', 'info');
                     render();
                 }
             }

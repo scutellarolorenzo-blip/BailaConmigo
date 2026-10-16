@@ -1,21 +1,9 @@
-const CACHE_NAME = 'bailaconmigo-v1.0.5'; // <--- MODIFICA QUESTO NUMERO QUANDO AGGIORNI L'APP
+const CACHE_NAME = 'bailaconmigo-v1.0.6';
 
-const ASSETS_TO_CACHE = [
-    './',
-    './index.html'
-];
-
-// Installazione del Service Worker
 self.addEventListener('install', (e) => {
-    e.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(ASSETS_TO_CACHE);
-        })
-    );
     self.skipWaiting();
 });
 
-// Attivazione e pulizia delle vecchie cache
 self.addEventListener('activate', (e) => {
     e.waitUntil(
         caches.keys().then((keys) => {
@@ -31,8 +19,11 @@ self.addEventListener('activate', (e) => {
     self.clients.claim();
 });
 
-// Gestione delle richieste (Network first, fallback alla cache)
+// Gestione richieste: Network First per evitare blocchi di versione
 self.addEventListener('fetch', (e) => {
+    // Non interceptare le chiamate a Supabase o esterne
+    if (e.request.url.includes('supabase.co')) return;
+
     e.respondWith(
         fetch(e.request)
             .then((response) => {
