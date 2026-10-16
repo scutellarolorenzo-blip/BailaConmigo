@@ -1553,8 +1553,16 @@
             }
         }
 
-        async function handleVideoUpload(e) {
+       async function handleVideoUpload(e) {
             e.preventDefault();
+            
+            // 1. Controllo preliminare: verifica che l'utente sia ancora autenticato come admin
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session || session.user.email !== ADMIN_EMAIL) {
+                showToast('Sessione scaduta o non autorizzata. Effettua nuovamente il login.', 'error');
+                return;
+            }
+
             const title = document.getElementById('form-title').value;
             const category = document.getElementById('form-category').value;
             const level = document.getElementById('form-level').value;
@@ -1568,35 +1576,34 @@
             }
 
             const videoFile = fileInput.files[0];
-            const fileExt = videoFile.name.split('.').pop();
+            console.log("File selezionato da mobile:", videoFile.name, videoFile.size, videoFile.type);
+
+            const fileExt = videoFile.name.split('.').pop() || 'mp4';
             const fileName = `lesson_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
 
-            showToast('Caricamento video in corso...', 'info');
-            console.log("Inizio upload del file:", fileName);
+            showToast('Caricamento in corso (attendi)...', 'info');
 
             try {
-                // 1. Caricamento nel bucket Supabase Storage
+                // Caricamento nel Supabase Storage con gestione esplicita dei dati binari
                 let { data: uploadData, error: uploadErr } = await supabaseClient.storage
                     .from('videos')
                     .upload(fileName, videoFile, {
                         cacheControl: '3600',
-                        upsert: false
+                        upsert: false,
+                        contentType: videoFile.type || 'video/mp4'
                     });
 
                 if (uploadErr) {
-                    console.error("ERRORE STORAGE SUPABASE:", uploadErr);
+                    console.error("Errore Storage Mobile Dettaglio:", uploadErr);
                     showToast('Errore Storage: ' + uploadErr.message, 'error');
                     return;
                 }
 
-                console.log("File caricato con successo nello Storage:", uploadData);
+                console.log("Upload mobile riuscito:", uploadData);
 
-                // 2. Ottieni l'URL pubblico
                 let { data: { publicUrl } } = supabaseClient.storage
                     .from('videos')
                     .getPublicUrl(fileName);
-
-                console.log("URL pubblico generato:", publicUrl);
 
                 const newVideoRecord = {
                     title,
@@ -1607,14 +1614,12 @@
                     description: desc
                 };
 
-                // 3. Salva il record nella tabella database 'videos'
                 let { error: insertErr } = await supabaseClient.from('videos').insert([newVideoRecord]);
                 
                 if (insertErr) {
-                    console.error("ERRORE DATABASE SUPABASE:", insertErr);
+                    console.error("Errore Database Mobile Dettaglio:", insertErr);
                     showToast('Errore salvataggio database: ' + insertErr.message, 'error');
                 } else {
-                    console.log("Video salvato correttamente nel database!");
                     showToast('Lezione caricata con successo!', 'success');
                     document.getElementById('form-title').value = '';
                     document.getElementById('form-duration').value = '';
@@ -1624,8 +1629,8 @@
                     navigate('videos', category, level);
                 }
             } catch (err) {
-                console.error("ERRORE IMPREVISTO UPLOAD:", err);
-                showToast('Errore imprevisto durante l\'upload (vedi console F12)', 'error');
+                console.error("Errore critico blocco mobile:", err);
+                showToast('Errore di rete o timeout dal telefono', 'error');
             }
         }
 
