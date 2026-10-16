@@ -387,13 +387,7 @@
             }
         ];
 
-        const defaultVideos = [
-            {
-                id: 'v1', title: 'Guapea y Dile Que No', category: 'salsa', level: 'primi-passi',
-                url: 'https://www.w3schools.com/html/mov_bbb.mp4', duration: '4:30',
-                desc: 'Figure fondamentali della Salsa Cubana per iniziare a ballare in coppia.'
-            }
-        ];
+        const defaultVideos = [];
 
         let state = {
             currentRoute: 'home',
@@ -1589,12 +1583,12 @@
                     });
 
                 if (uploadErr) {
-                    console.error(uploadErr);
+                    console.error("Errore Storage Supabase:", uploadErr);
                     showToast('Errore Storage: ' + uploadErr.message, 'error');
                     return;
                 }
 
-                // Ottieni l'URL pubblico del file
+                // Ottieni l'URL pubblico del file caricato
                 let { data: { publicUrl } } = supabaseClient.storage
                     .from('videos')
                     .getPublicUrl(fileName);
@@ -1610,7 +1604,7 @@
 
                 let { error: insertErr } = await supabaseClient.from('videos').insert([newVideoRecord]);
                 if (insertErr) {
-                    console.error(insertErr);
+                    console.error("Errore Database Supabase:", insertErr);
                     showToast('Errore salvataggio database: ' + insertErr.message, 'error');
                 } else {
                     showToast('Lezione caricata con successo!', 'success');
@@ -1622,7 +1616,7 @@
                     navigate('videos', category, level);
                 }
             } catch (err) {
-                console.error(err);
+                console.error("Errore imprevisto upload:", err);
                 showToast('Errore imprevisto durante l\'upload', 'error');
             }
         }
