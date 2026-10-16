@@ -1,11 +1,11 @@
+const CACHE_NAME = 'bailaconmigo-v1.1.3';
 
-const CACHE_NAME = 'bailaconmigo-v1.1.1';
-
-
+// Installazione immediata della nuova versione
 self.addEventListener('install', (e) => {
     self.skipWaiting();
 });
 
+// Attivazione e pulizia immediata delle vecchie cache
 self.addEventListener('activate', (e) => {
     e.waitUntil(
         caches.keys().then((keys) => {
@@ -21,10 +21,17 @@ self.addEventListener('activate', (e) => {
     self.clients.claim();
 });
 
-// Gestione richieste: Network First per evitare blocchi di versione
+// Gestione delle richieste di rete
 self.addEventListener('fetch', (e) => {
-    // Non interceptare le chiamate a Supabase o esterne
-    if (e.request.url.includes('supabase.co')) return;
+    // Non intercettare mai le chiamate esterne o a Supabase (Database e Storage)
+    if (e.request.url.includes('supabase.co') || !e.request.url.startsWith(self.location.origin)) {
+        return;
+    }
+
+    // Gestisci solo richieste GET per evitare errori con upload o invio dati
+    if (e.request.method !== 'GET') {
+        return;
+    }
 
     e.respondWith(
         fetch(e.request)

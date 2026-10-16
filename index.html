@@ -1553,13 +1553,13 @@
             }
         }
 
-       async function handleVideoUpload(e) {
+        async function handleVideoUpload(e) {
             e.preventDefault();
             
-            // 1. Controllo preliminare: verifica che l'utente sia ancora autenticato come admin
+            // Verifica della sessione attiva prima di procedere
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (!session || session.user.email !== ADMIN_EMAIL) {
-                showToast('Sessione scaduta o non autorizzata. Effettua nuovamente il login.', 'error');
+                showToast('Sessione non valida o scaduta. Effettua nuovamente il login.', 'error');
                 return;
             }
 
@@ -1576,31 +1576,31 @@
             }
 
             const videoFile = fileInput.files[0];
-            console.log("File selezionato da mobile:", videoFile.name, videoFile.size, videoFile.type);
-
             const fileExt = videoFile.name.split('.').pop() || 'mp4';
             const fileName = `lesson_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
 
-            showToast('Caricamento in corso (attendi)...', 'info');
+            showToast('Caricamento in corso...', 'info');
 
             try {
-                // Caricamento nel Supabase Storage con gestione esplicita dei dati binari
+                // Conversione del file in ArrayBuffer per compatibilità totale con i browser mobili
+                const arrayBuffer = await videoFile.arrayBuffer();
+
+                // Upload nel Supabase Storage usando l'array binario
                 let { data: uploadData, error: uploadErr } = await supabaseClient.storage
                     .from('videos')
-                    .upload(fileName, videoFile, {
+                    .upload(fileName, arrayBuffer, {
                         cacheControl: '3600',
                         upsert: false,
                         contentType: videoFile.type || 'video/mp4'
                     });
 
                 if (uploadErr) {
-                    console.error("Errore Storage Mobile Dettaglio:", uploadErr);
+                    console.error("Errore Storage Mobile:", uploadErr);
                     showToast('Errore Storage: ' + uploadErr.message, 'error');
                     return;
                 }
 
-                console.log("Upload mobile riuscito:", uploadData);
-
+                // Ottieni l'URL pubblico del video caricato
                 let { data: { publicUrl } } = supabaseClient.storage
                     .from('videos')
                     .getPublicUrl(fileName);
@@ -1614,10 +1614,11 @@
                     description: desc
                 };
 
+                // Salvataggio del record nel database
                 let { error: insertErr } = await supabaseClient.from('videos').insert([newVideoRecord]);
                 
                 if (insertErr) {
-                    console.error("Errore Database Mobile Dettaglio:", insertErr);
+                    console.error("Errore Database Mobile:", insertErr);
                     showToast('Errore salvataggio database: ' + insertErr.message, 'error');
                 } else {
                     showToast('Lezione caricata con successo!', 'success');
@@ -1629,8 +1630,8 @@
                     navigate('videos', category, level);
                 }
             } catch (err) {
-                console.error("Errore critico blocco mobile:", err);
-                showToast('Errore di rete o timeout dal telefono', 'error');
+                console.error("Errore critico mobile:", err);
+                showToast('Errore di connessione durante l\'upload', 'error');
             }
         }
 
