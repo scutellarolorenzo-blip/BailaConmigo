@@ -1,5 +1,5 @@
+<<<<<<< HEAD
 const CACHE_NAME = 'bailaconmigo-v1.0.3'; // <--- MODIFICA QUESTO NUMERO QUANDO AGGIORNI L'APP
-
 const ASSETS_TO_CACHE = [
     './',
     './index.html'
