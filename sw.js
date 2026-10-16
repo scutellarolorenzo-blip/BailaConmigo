@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bailaconmigo-v1.1.3';
+const CACHE_NAME = 'bailaconmigo-v1.1.4';
 
 // Installazione immediata della nuova versione
 self.addEventListener('install', (e) => {

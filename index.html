@@ -1556,7 +1556,7 @@
         async function handleVideoUpload(e) {
             e.preventDefault();
             
-            // Verifica della sessione attiva prima di procedere
+            // Verifica della sessione attiva
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (!session || session.user.email !== ADMIN_EMAIL) {
                 showToast('Sessione non valida o scaduta. Effettua nuovamente il login.', 'error');
@@ -1582,16 +1582,12 @@
             showToast('Caricamento in corso...', 'info');
 
             try {
-                // Conversione del file in ArrayBuffer per compatibilità totale con i browser mobili
-                const arrayBuffer = await videoFile.arrayBuffer();
-
-                // Upload nel Supabase Storage usando l'array binario
+                // Invio diretto del file (ottimizzato sia per desktop che per mobile)
                 let { data: uploadData, error: uploadErr } = await supabaseClient.storage
                     .from('videos')
-                    .upload(fileName, arrayBuffer, {
+                    .upload(fileName, videoFile, {
                         cacheControl: '3600',
-                        upsert: false,
-                        contentType: videoFile.type || 'video/mp4'
+                        upsert: false
                     });
 
                 if (uploadErr) {
@@ -1600,7 +1596,6 @@
                     return;
                 }
 
-                // Ottieni l'URL pubblico del video caricato
                 let { data: { publicUrl } } = supabaseClient.storage
                     .from('videos')
                     .getPublicUrl(fileName);
@@ -1614,7 +1609,6 @@
                     description: desc
                 };
 
-                // Salvataggio del record nel database
                 let { error: insertErr } = await supabaseClient.from('videos').insert([newVideoRecord]);
                 
                 if (insertErr) {
