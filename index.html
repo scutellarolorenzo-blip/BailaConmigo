@@ -1748,34 +1748,41 @@
 
             let videoUrl = video.url;
             
-            // Estrazione pulita dell'ID YouTube da qualsiasi formato di link
-            let videoId = '';
-            if (videoUrl.includes('youtu.be/')) {
-                videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
-            } else if (videoUrl.includes('watch?v=')) {
-                videoId = videoUrl.split('watch?v=')[1].split('&')[0];
-            } else if (videoUrl.includes('shorts/')) {
-                videoId = videoUrl.split('shorts/')[1].split('?')[0];
-            } else if (videoUrl.includes('embed/')) {
-                videoId = videoUrl.split('embed/')[1].split('?')[0];
-            }
-            
-            if (videoId) {
-                // SOLUZIONE DEFINITIVA PER PC E MOBILE:
-                // Usiamo youtube-nocookie.com con i parametri di compatibilità totale per l'embedding
-                videoUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=0&controls=1&rel=0&playsinline=1&modestbranding=1`;
+            // Estrazione pulita dell'ID YouTube (supporta watch, short, youtu.be e embed)
+            if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+                let videoId = '';
+                if (videoUrl.includes('youtu.be/')) {
+                    videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
+                } else if (videoUrl.includes('watch?v=')) {
+                    videoId = videoUrl.split('watch?v=')[1].split('&')[0];
+                } else if (videoUrl.includes('shorts/')) {
+                    videoId = videoUrl.split('shorts/')[1].split('?')[0];
+                } else if (videoUrl.includes('embed/')) {
+                    videoId = videoUrl.split('embed/')[1].split('?')[0];
+                }
+                
+                if (videoId) {
+                    // Usiamo il dominio youtube.com/embed classico anziché nocookie, che accetta meglio l'incorporamento diretto
+                    videoUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=1&rel=0&playsinline=1`;
+                }
             }
 
-            container.innerHTML = `
-                <iframe
-                    src="${videoUrl}"
-                    title="Video della lezione"
-                    class="w-full h-full absolute inset-0 border-0"
-                    referrerpolicy="no-referrer"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowfullscreen>
-                </iframe>
-            `;
+            if (videoUrl.startsWith('blob:') || videoUrl.endsWith('.mp4') || videoUrl.endsWith('.webm')) {
+                container.innerHTML = `
+                    <video src="${videoUrl}" class="w-full h-full absolute inset-0 object-contain bg-black" controls autoplay playsinline></video>
+                `;
+            } else {
+                container.innerHTML = `
+                    <iframe
+                        src="${videoUrl}"
+                        title="Video della lezione"
+                        class="w-full h-full absolute inset-0 border-0"
+                        referrerpolicy="strict-origin-when-cross-origin"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowfullscreen>
+                    </iframe>
+                `;
+            }
 
             updateModalFavBtn();
             modal.classList.remove('hidden');
