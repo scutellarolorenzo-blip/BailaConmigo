@@ -2,6 +2,7 @@
 <html lang="it" class="h-full">
 <head>
     <meta charset="UTF-8">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Baila Conmigo - Accademia di Ballo</title>
     <!-- PWA Manifest & Meta Tag per iOS/Android -->
@@ -1735,7 +1736,6 @@
             const titleEl = document.getElementById('modal-title');
             const badgeEl = document.getElementById('modal-badge');
             const catEl = document.getElementById('modal-category');
-            const durEl = document.getElementById('modal-duration');
             const descEl = document.getElementById('modal-desc');
 
             const cat = state.categories.find(c => c.id === video.category);
@@ -1744,21 +1744,27 @@
             titleEl.innerText = video.title;
             catEl.innerText = cat ? cat.name : video.category;
             descEl.innerText = video.desc || 'Nessuna nota aggiuntiva fornita dai maestri.';
-            
             badgeEl.innerText = lvlObj ? lvlObj.name : video.level;
 
             let videoUrl = video.url;
-            
-            // Se è un link di YouTube, convertilo nell'URL di incorporamento (embed)
+
+            // Estrazione pulita dell'ID YouTube (supporta watch, short, youtu.be e embed)
             if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
                 let videoId = '';
                 if (videoUrl.includes('youtu.be/')) {
                     videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
                 } else if (videoUrl.includes('watch?v=')) {
                     videoId = videoUrl.split('watch?v=')[1].split('&')[0];
+                } else if (videoUrl.includes('shorts/')) {
+                    videoId = videoUrl.split('shorts/')[1].split('?')[0];
+                } else if (videoUrl.includes('embed/')) {
+                    videoId = videoUrl.split('embed/')[1].split('?')[0];
                 }
+                
                 if (videoId) {
-                    videoUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&modestbranding=1&rel=0`;
+                    // Utilizziamo il parametro origin per autorizzare Cloudflare / GitHub Pages
+                    const currentOrigin = window.location.origin;
+                    videoUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=1&rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(currentOrigin)}`;
                 }
             }
 
@@ -1768,7 +1774,14 @@
                 `;
             } else {
                 container.innerHTML = `
-                    <iframe src="${videoUrl}" class="w-full h-full absolute inset-0 border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    <iframe
+                        src="${videoUrl}"
+                        title="Video della lezione"
+                        class="w-full h-full absolute inset-0 border-0"
+                        referrerpolicy="strict-origin-when-cross-origin"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowfullscreen>
+                    </iframe>
                 `;
             }
 
