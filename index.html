@@ -41,6 +41,11 @@
         body { font-family: 'Inter', sans-serif; transition: background 0.5s ease, color 0.5s ease; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* --- AGGIUNTA PER LO SCORRIMENTO DURANTE LA REGISTRAZIONE --- */
+        #auth-modal .modal-box {
+            max-height: 85vh;
+            overflow-y: auto;
+        }
 
         /* --- STILI DINAMICI PER CIASCUN TEMA --- */
         
@@ -441,13 +446,38 @@
             await checkSessionAndProfile();
             await loadDataFromCloud();
             
-            // Se l'utente è admin, forza la rotta e aggiorna la UI dei tab inferiori
-            if (state.isAdmin) {
+            // Ripristina la pagina precedente salvata se si aggiorna la pagina (refresh)
+            const savedRoute = localStorage.getItem('baila_current_route');
+            const savedCat = localStorage.getItem('baila_selected_cat');
+            const savedLvl = localStorage.getItem('baila_selected_lvl');
+
+            if (savedRoute && state.user) {
+                state.currentRoute = savedRoute;
+                if (savedCat) state.selectedCategory = savedCat;
+                if (savedLvl) state.selectedLevel = savedLvl;
+            } else if (state.isAdmin) {
                 state.currentRoute = 'admin';
             }
 
+            // Inizializza lo stato della cronologia del browser
+            history.replaceState({ route: state.currentRoute, cat: state.selectedCategory, lvl: state.selectedLevel }, '');
+
             render();
-            updateBottomNav(); // Sincronizza subito l'icona attiva nella navbar in basso
+            updateBottomNav(); 
+
+            // Gestione del tasto "Indietro" del browser / dispositivo mobile
+            window.addEventListener('popstate', (event) => {
+                if (event.state && event.state.route) {
+                    state.currentRoute = event.state.route;
+                    state.selectedCategory = event.state.cat || null;
+                    state.selectedLevel = event.state.lvl || null;
+                    localStorage.setItem('baila_current_route', state.currentRoute);
+                    localStorage.setItem('baila_selected_cat', state.selectedCategory || '');
+                    localStorage.setItem('baila_selected_lvl', state.selectedLevel || '');
+                    render();
+                    updateBottomNav();
+                }
+            }); // Sincronizza subito l'icona attiva nella navbar in basso
 
             supabaseClient
                 .channel('public:profiles')
@@ -779,7 +809,7 @@
             } catch (e) { console.error("Errore salvataggio categorie", e); }
         }
 
-        function navigate(route, param1 = null, param2 = null) {
+        function navigate(route, param1 = null, param2 = null, pushHistory = true) {
             if (route === 'admin' && !state.isAdmin) {
                 openAuthModal();
                 return;
@@ -790,11 +820,24 @@
                 state.selectedCategory = param1;
                 state.selectedLevel = param2;
             }
+            if (route === 'home' || route === 'favorites' || route === 'admin') {
+                state.selectedCategory = null;
+                state.selectedLevel = null;
+            }
+
+            // Salva lo stato corrente per il refresh
+            localStorage.setItem('baila_current_route', state.currentRoute);
+            localStorage.setItem('baila_selected_cat', state.selectedCategory || '');
+            localStorage.setItem('baila_selected_lvl', state.selectedLevel || '');
+
+            if (pushHistory) {
+                history.pushState({ route: state.currentRoute, cat: state.selectedCategory, lvl: state.selectedLevel }, '');
+            }
+
             window.scrollTo({ top: 0, behavior: 'smooth' });
             render();
             updateBottomNav();
         }
-
         function openAuthModal() {
             document.getElementById('auth-modal').classList.remove('hidden');
         }
