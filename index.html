@@ -310,6 +310,59 @@
             </div>
         </div>
     </div>
+    <!-- Modal Modifica Lezione Esistente per Admin -->
+    <div id="edit-video-modal" class="fixed inset-0 modal-overlay z-50 flex flex-col justify-center items-center p-4 hidden">
+        <div class="max-w-lg w-full modal-box rounded-3xl p-6 relative max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-extrabold mb-1">Modifica Lezione</h3>
+            <p class="text-xs opacity-70 mb-4">Aggiorna i dati o gestisci i video YouTube di questa lezione</p>
+            
+            <form onsubmit="handleVideoUpdate(event)" class="space-y-4">
+                <input type="hidden" id="edit-video-id">
+                
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Titolo della Figura</label>
+                    <input type="text" id="edit-form-title" required class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Corso</label>
+                        <select id="edit-form-category" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                            <!-- Popolato dinamicamente -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Livello</label>
+                        <select id="edit-form-level" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                            <!-- Popolato dinamicamente -->
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-semibold uppercase tracking-wider opacity-80">Link YouTube (Puoi aggiungerne o rimuoverne)</label>
+                        <button type="button" onclick="addEditVideoUrlField()" class="text-xs accent-text font-bold hover:opacity-80 flex items-center space-x-1">
+                            <i class="fa-solid fa-plus"></i><span>Aggiungi video</span>
+                        </button>
+                    </div>
+                    <div id="edit-youtube-urls-container" class="space-y-2">
+                        <!-- Popolato dinamicamente -->
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Note e Descrizione Maestri</label>
+                    <textarea id="edit-form-desc" rows="3" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition resize-none shadow-inner"></textarea>
+                </div>
+
+                <div class="flex space-x-3 pt-2">
+                    <button type="button" onclick="closeEditVideoModal()" class="flex-1 py-3 glass-card font-semibold rounded-2xl text-xs transition">Annulla</button>
+                    <button type="submit" class="flex-1 py-3 accent-bg text-white font-bold rounded-2xl text-xs transition shadow-lg">Salva Modifiche</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Global Search Modal -->
     <div id="search-modal" class="fixed inset-0 modal-overlay z-50 flex flex-col p-4 pt-16 hidden animate-fade-in">
@@ -768,27 +821,51 @@
 
         async function loadDataFromCloud() {
             try {
+                // Mantiene l'ordine dei corsi già mostrato nell'app: Supabase non
+                // garantisce l'ordine delle righe senza una colonna di ordinamento.
+                const previousCategoryOrder = (state.categories || []).map(c => String(c.id));
                 let { data: catData, error: catError } = await supabaseClient.from('categories').select('*');
                 if (catError || !catData || catData.length === 0) {
                     state.categories = defaultCategories;
                 } else {
-                    state.categories = catData.filter(c => c.id !== 'admin_config').map(c => typeof c.data === 'string' ? JSON.parse(c.data) : c);
+                    const loadedCategories = catData
+                        .filter(c => c.id !== 'admin_config')
+                        .map(c => typeof c.data === 'string' ? JSON.parse(c.data) : c);
+                    const orderIndex = new Map(previousCategoryOrder.map((id, index) => [id, index]));
+                    state.categories = loadedCategories.sort((a, b) => {
+                        const ai = orderIndex.has(String(a.id)) ? orderIndex.get(String(a.id)) : Number.MAX_SAFE_INTEGER;
+                        const bi = orderIndex.has(String(b.id)) ? orderIndex.get(String(b.id)) : Number.MAX_SAFE_INTEGER;
+                        return ai - bi;
+                    });
                     if (state.categories.length === 0) state.categories = defaultCategories;
                 }
-
                 let { data: vidData, error: vidError } = await supabaseClient.from('videos').select('*');
                 if (vidError || !vidData || vidData.length === 0) {
                     state.videos = defaultVideos;
                 } else {
-                    state.videos = vidData.map(v => ({
-                        id: v.id.toString(),
-                        title: v.title,
-                        category: v.category,
-                        level: v.level,
-                        url: v.url,
-                        duration: v.duration || '5:00',
-                        desc: v.description || v.desc
-                    }));
+                    state.videos = vidData.map(v => {
+                        let parsedUrl = v.url;
+                        // Retrocompatibilità: se il database contiene una stringa singola o un array
+                        if (typeof v.url === 'string') {
+                            try {
+                                parsedUrl = JSON.parse(v.url);
+                            } catch (e) {
+                                parsedUrl = [v.url];
+                            }
+                        }
+                        if (!Array.isArray(parsedUrl)) {
+                            parsedUrl = [v.url];
+                        }
+                        return {
+                            id: v.id.toString(),
+                            title: v.title,
+                            category: v.category,
+                            level: v.level,
+                            urls: parsedUrl,
+                            duration: v.duration || '5:00',
+                            desc: String(v.description ?? v.desc ?? '')
+                        };
+                    });
                 }
 
                 let { data: profData } = await supabaseClient.from('profiles').select('*');
@@ -802,13 +879,136 @@
             }
         }
 
-        async function saveCategoriesToCloud() {
+        
+        // Salva un solo corso: le modifiche ai livelli non devono fallire
+        // a causa della verifica di un altro corso indipendente.
+        async function saveSingleCategoryToCloud(cat) {
+            if (!state.isAdmin) {
+                showToast('Operazione consentita solo all’amministratore.', 'error');
+                return false;
+            }
             try {
-                for (let cat of state.categories) {
-                    await supabaseClient.from('categories').upsert({ id: cat.id, name: cat.name, desc: cat.desc, icon: cat.icon, bgImage: cat.bgImage, levels: cat.levels });
+                const expectedLevels = Array.isArray(cat.levels) ? cat.levels : [];
+                const payload = {
+                    id: cat.id,
+                    name: cat.name,
+                    desc: cat.desc || '',
+                    icon: cat.icon || 'fa-music',
+                    bgImage: cat.bgImage || '',
+                    levels: expectedLevels
+                };
+                const { data, error } = await supabaseClient
+                    .from('categories')
+                    .upsert(payload, { onConflict: 'id' })
+                    .select('id, levels');
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    throw new Error(`Supabase non ha confermato il salvataggio del corso "${cat.name}".`);
                 }
-            } catch (e) { console.error("Errore salvataggio categorie", e); }
+                const savedLevels = data[0].levels;
+                const normalize = levels => (Array.isArray(levels) ? levels : []).map(level => ({
+                    id: String(level?.id ?? ''),
+                    name: String(level?.name ?? ''),
+                    subtitle: String(level?.subtitle ?? '')
+                }));
+                if (!Array.isArray(savedLevels) ||
+                    JSON.stringify(normalize(savedLevels)) !== JSON.stringify(normalize(expectedLevels))) {
+                    throw new Error(`Supabase ha risposto, ma i livelli del corso "${cat.name}" non risultano salvati correttamente.`);
+                }
+                return true;
+            } catch (error) {
+                console.error('Errore salvataggio livelli del corso:', cat?.id, error);
+                showToast('Livello non salvato: ' + (error.message || 'errore sconosciuto'), 'error');
+                return false;
+            }
         }
+
+        async function saveCategoriesToCloud() {
+            if (!state.isAdmin) {
+                showToast('Operazione consentita solo all’amministratore.', 'error');
+                return false;
+            }
+
+            try {
+                for (const cat of state.categories) {
+                    const payload = {
+                        id: cat.id,
+                        name: cat.name,
+                        desc: cat.desc || '',
+                        icon: cat.icon || 'fa-music',
+                        bgImage: cat.bgImage || '',
+                        levels: Array.isArray(cat.levels) ? cat.levels : []
+                    };
+
+                    const { data, error } = await supabaseClient
+                        .from('categories')
+                        .upsert(payload, { onConflict: 'id' })
+                        .select();
+
+                    if (error) {
+                        console.error('Errore salvataggio categoria:', cat.id, error);
+                        throw error;
+                    }
+
+                    if (!data || data.length === 0) {
+                        throw new Error(
+                            `Nessuna conferma di salvataggio per il corso "${cat.name}".`
+                        );
+                    }
+                }
+
+                // Rileggi i dati dal database prima di confermare il salvataggio.
+                const { data: savedCategories, error: readError } =
+                    await supabaseClient.from('categories').select('*');
+
+                if (readError) throw readError;
+
+                if (!savedCategories) {
+                    throw new Error('Impossibile verificare i corsi salvati.');
+                }
+
+                const savedById = new Map(
+                    savedCategories.map(row => [row.id, row])
+                );
+
+                for (const cat of state.categories) {
+                    const row = savedById.get(cat.id);
+
+                    if (!row) {
+                        throw new Error(`Il corso "${cat.name}" non risulta nel database.`);
+                    }
+
+                    const savedLevels = row.levels;
+                    const expectedLevels = Array.isArray(cat.levels) ? cat.levels : [];
+                    const normalizeLevels = levels => levels.map(level => ({
+                        id: String(level?.id ?? ''),
+                        name: String(level?.name ?? ''),
+                        subtitle: String(level?.subtitle ?? '')
+                    }));
+
+                    // Confronta i campi effettivi, senza dipendere dall'ordine delle chiavi JSON.
+                    // Mantiene invece l'ordine dell'array, che determina l'ordine dei livelli nell'app.
+                    if (
+                        !Array.isArray(savedLevels) ||
+                        JSON.stringify(normalizeLevels(savedLevels)) !== JSON.stringify(normalizeLevels(expectedLevels))
+                    ) {
+                        throw new Error(
+                            `I livelli del corso "${cat.name}" non coincidono con quelli salvati.`
+                        );
+                    }
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Errore durante il salvataggio dei corsi:', error);
+                showToast(
+                    'Salvataggio non riuscito: ' + (error.message || 'errore sconosciuto'),
+                    'error'
+                );
+                return false;
+            }
+        }
+
 
         function navigate(route, param1 = null, param2 = null, pushHistory = true) {
             if (route === 'admin' && !state.isAdmin) {
@@ -1094,6 +1294,7 @@
                                 </div>
                                 <div class="min-w-0 flex-1 pr-2">
                                     <h3 class="font-bold text-sm sm:text-base break-words hover:opacity-80 transition leading-snug">${v.title}</h3>
+                                    <span class="text-[10px] opacity-70 uppercase font-semibold">${v.urls ? v.urls.length : 1} video caricati</span>
                                 </div>
                             </div>
                             <div class="flex items-center space-x-2 ml-3 flex-shrink-0">
@@ -1101,6 +1302,9 @@
                                     <i class="${isFav ? 'fa-solid' : 'fa-regular'} fa-heart text-sm"></i>
                                 </button>
                                 ${state.isAdmin ? `
+                                    <button onclick="openEditVideoModal('${v.id}', event)" class="w-10 h-10 rounded-xl glass-card accent-text flex items-center justify-center transition shadow-inner" title="Modifica lezione">
+                                        <i class="fa-solid fa-pen text-sm"></i>
+                                    </button>
                                     <button onclick="deleteVideo('${v.id}', event)" class="w-10 h-10 rounded-xl glass-card text-rose-500 flex items-center justify-center transition shadow-inner" title="Elimina video">
                                         <i class="fa-solid fa-trash-can text-sm"></i>
                                     </button>
@@ -1321,8 +1525,17 @@
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Link YouTube (Video Non in elenco)</label>
-                            <input type="text" id="form-youtube-url" required placeholder="Es. https://youtu.be/xxxxx o https://www.youtube.com/watch?v=xxxxx" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-xs font-semibold uppercase tracking-wider opacity-80">Link YouTube (Uno o più video)</label>
+                                <button type="button" onclick="addVideoUrlField()" class="text-xs accent-text font-bold hover:opacity-80 flex items-center space-x-1">
+                                    <i class="fa-solid fa-plus"></i><span>Aggiungi un altro video</span>
+                                </button>
+                            </div>
+                            <div id="youtube-urls-container" class="space-y-2">
+                                <div class="flex items-center space-x-2">
+                                    <input type="text" required placeholder="Es. https://youtu.be/xxxxx" class="custom-input form-youtube-url-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                                </div>
+                            </div>
                         </div>
 
                         <div>
@@ -1365,10 +1578,14 @@
                         </div>
                         <div class="mt-3 pt-3 border-t flex flex-wrap gap-2 items-center" style="border-color: var(--card-border);">
                             <span class="text-xs opacity-70 font-bold uppercase">Livelli:</span>
-                            ${cat.levels && cat.levels.length > 0 ? cat.levels.map(l => `
-                                <span class="px-3 py-1 rounded-xl glass-card text-xs font-medium flex items-center space-x-2 shadow-inner">
+                            ${cat.levels && cat.levels.length > 0 ? cat.levels.map((l, index) => `
+                                <span class="px-3 py-1.5 rounded-xl glass-card text-xs font-medium flex items-center space-x-2 shadow-inner">
+                                    <span class="opacity-50">${index + 1}.</span>
                                     <span>${l.name}</span>
-                                    <button onclick="deleteLevel('${cat.id}', '${l.id}')" class="text-rose-500 hover:opacity-80 ml-1"><i class="fa-solid fa-xmark"></i></button>
+                                    <button title="Sposta su" onclick="moveLevel('${cat.id}', '${l.id}', -1)" ${index === 0 ? 'disabled' : ''} class="${index === 0 ? 'opacity-25' : 'hover:accent-text'} ml-1"><i class="fa-solid fa-arrow-up"></i></button>
+                                    <button title="Sposta giù" onclick="moveLevel('${cat.id}', '${l.id}', 1)" ${index === cat.levels.length - 1 ? 'disabled' : ''} class="${index === cat.levels.length - 1 ? 'opacity-25' : 'hover:accent-text'}"><i class="fa-solid fa-arrow-down"></i></button>
+                                    <button title="Rinomina livello" onclick="renameLevel('${cat.id}', '${l.id}')" class="accent-text hover:opacity-80 ml-1"><i class="fa-solid fa-pen"></i></button>
+                                    <button title="Elimina livello" onclick="deleteLevel('${cat.id}', '${l.id}')" class="text-rose-500 hover:opacity-80 ml-1"><i class="fa-solid fa-xmark"></i></button>
                                 </span>
                             `).join('') : '<span class="text-xs opacity-40">Nessun livello</span>'}
                             <button onclick="openLevelModal('${cat.id}')" class="px-3 py-1 rounded-2xl glass-card accent-text text-xs font-semibold transition">
@@ -1519,19 +1736,25 @@
             const modal = document.getElementById('custom-prompt-modal');
             const inputEl = document.getElementById('custom-prompt-input');
             modal.classList.add('hidden');
-            
-            // Ripristina l'input nel caso fosse stato nascosto dalla modale di conferma
+
+            // Cattura e azzera i callback PRIMA di eseguirli: un callback può
+            // aprire subito un secondo prompt (come per aggiungere un livello).
+            // In tal caso il nuovo callback non deve essere cancellato dal primo.
+            const currentPromptCallback = promptCallback;
+            const currentConfirmCallback = confirmCallback;
+            promptCallback = null;
+            confirmCallback = null;
+
+            // Ripristina l'input nel caso fosse stato nascosto dalla modale di conferma.
             inputEl.style.display = 'block';
 
             if (confirmed) {
-                if (promptCallback) {
-                    promptCallback(inputEl.value.trim());
-                } else if (confirmCallback) {
-                    confirmCallback();
+                if (typeof currentPromptCallback === 'function') {
+                    currentPromptCallback(inputEl.value.trim());
+                } else if (typeof currentConfirmCallback === 'function') {
+                    currentConfirmCallback();
                 }
             }
-            promptCallback = null;
-            confirmCallback = null;
         }
 
         async function openCourseModal(courseId = null) {
@@ -1579,26 +1802,87 @@
 
             showCustomPrompt("Aggiungi Livello", "Inserisci il nome del livello (es. Primo Intermedio):", "", async (lvlName) => {
                 if (!lvlName) return;
-                showCustomPrompt("Aggiungi Livello", "Inserisci una breve descrizione del livello:", "Figure e combinazioni", async (lvlSub) => {
-                    const lvlId = lvlName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-                    if (!course.levels) course.levels = [];
-                    
-                    if (course.levels.some(l => l.id === lvlId)) {
+                showCustomPrompt("Descrizione Livello", "Inserisci una breve descrizione del livello:", "Figure e combinazioni", async (lvlSub) => {
+                    const cleanName = lvlName.trim();
+                    const lvlId = cleanName.toLowerCase()
+                        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                        .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+                    if (!lvlId) {
+                        showToast("Inserisci un nome valido per il livello.", "error");
+                        return;
+                    }
+                    if (!Array.isArray(course.levels)) course.levels = [];
+                    if (course.levels.some(l => String(l.name || '').trim().toLowerCase() === cleanName.toLowerCase())) {
                         showToast("Un livello con questo nome esiste già!", "error");
                         return;
                     }
+                    // Due nomi diversi possono produrre lo stesso ID dopo la normalizzazione.
+                    // In quel caso aggiunge un suffisso, senza bloccare l'aggiunta.
+                    let uniqueLvlId = lvlId;
+                    let suffix = 2;
+                    while (course.levels.some(l => String(l.id) === uniqueLvlId)) {
+                        uniqueLvlId = `${lvlId}_${suffix++}`;
+                    }
 
-                    course.levels.push({
-                        id: lvlId,
-                        name: lvlName,
-                        subtitle: lvlSub
-                    });
-
-                    await saveCategoriesToCloud();
-                    showToast('Livello aggiunto nel Cloud', 'success');
+                    const originalLevels = course.levels.map(l => ({ ...l }));
+                    course.levels.push({ id: uniqueLvlId, name: cleanName, subtitle: (lvlSub || '').trim() });
+                    const saved = await saveSingleCategoryToCloud(course);
+                    if (!saved) {
+                        course.levels = originalLevels;
+                        render();
+                        return;
+                    }
+                    await loadDataFromCloud();
+                    showToast('Livello aggiunto e verificato nel Cloud', 'success');
                     render();
                 });
             });
+        }
+
+        async function renameLevel(courseId, levelId) {
+            const course = state.categories.find(c => c.id === courseId);
+            const level = course?.levels?.find(l => String(l.id) === String(levelId));
+            if (!course || !level) return;
+
+            showCustomPrompt('Rinomina livello', 'Inserisci il nuovo nome. Le lezioni collegate resteranno associate al livello.', level.name, async newName => {
+                const cleanName = (newName || '').trim();
+                if (!cleanName || cleanName === level.name) return;
+                if (course.levels.some(l => String(l.id) !== String(levelId) && l.name.trim().toLowerCase() === cleanName.toLowerCase())) {
+                    showToast('Esiste già un livello con questo nome in questo corso.', 'error');
+                    return;
+                }
+                const oldName = level.name;
+                level.name = cleanName;
+                const saved = await saveSingleCategoryToCloud(course);
+                if (!saved) {
+                    level.name = oldName;
+                    render();
+                    return;
+                }
+                await loadDataFromCloud();
+                showToast('Nome del livello aggiornato nel Cloud.', 'success');
+                render();
+            });
+        }
+
+        async function moveLevel(courseId, levelId, direction) {
+            const course = state.categories.find(c => c.id === courseId);
+            if (!course || !Array.isArray(course.levels)) return;
+            const index = course.levels.findIndex(l => String(l.id) === String(levelId));
+            const targetIndex = index + direction;
+            if (index < 0 || targetIndex < 0 || targetIndex >= course.levels.length) return;
+
+            const originalLevels = course.levels.map(l => ({ ...l }));
+            [course.levels[index], course.levels[targetIndex]] = [course.levels[targetIndex], course.levels[index]];
+            const saved = await saveSingleCategoryToCloud(course);
+            if (!saved) {
+                course.levels = originalLevels;
+                render();
+                return;
+            }
+            await loadDataFromCloud();
+            showToast('Ordine dei livelli aggiornato.', 'success');
+            render();
         }
 
         async function deleteLevel(courseId, levelId) {
@@ -1606,9 +1890,21 @@
             if (!course) return;
 
             if (confirm("Vuoi rimuovere questo livello?")) {
+                const originalLevels = [...course.levels];
+
                 course.levels = course.levels.filter(l => l.id !== levelId);
-                await saveCategoriesToCloud();
-                showToast('Livello rimosso dal Cloud', 'info');
+
+                const saved = await saveSingleCategoryToCloud(course);
+
+                if (!saved) {
+                    course.levels = originalLevels;
+                    render();
+                    return;
+                }
+
+                await loadDataFromCloud();
+
+                showToast('Livello rimosso e verificato nel Cloud', 'success');
                 render();
             }
         }
@@ -1625,11 +1921,14 @@
             const title = document.getElementById('form-title').value;
             const category = document.getElementById('form-category').value;
             const level = document.getElementById('form-level').value;
-            const youtubeUrl = document.getElementById('form-youtube-url').value.trim();
             const desc = document.getElementById('form-desc').value;
 
-            if (!youtubeUrl) {
-                showToast('Inserisci il link di YouTube', 'error');
+            // Raccoglie tutti i link YouTube inseriti dinamicamente nei campi di input multipli
+            const urlInputs = document.querySelectorAll('.form-youtube-url-input');
+            const urls = Array.from(urlInputs).map(input => input.value.trim()).filter(url => url.length > 0);
+
+            if (urls.length === 0) {
+                showToast('Inserisci almeno un link di YouTube', 'error');
                 return;
             }
 
@@ -1640,7 +1939,7 @@
                     title,
                     category,
                     level,
-                    url: youtubeUrl,
+                    url: urls,
                     description: desc
                 };
 
@@ -1652,8 +1951,13 @@
                 } else {
                     showToast('Lezione aggiunta con successo!', 'success');
                     document.getElementById('form-title').value = '';
-                    document.getElementById('form-youtube-url').value = '';
                     document.getElementById('form-desc').value = '';
+                    // Reset dei campi video multipli lasciandone solo uno vuoto
+                    document.getElementById('youtube-urls-container').innerHTML = `
+                        <div class="flex items-center space-x-2 mb-2">
+                            <input type="text" required placeholder="Es. https://youtu.be/xxxxx" class="custom-input form-youtube-url-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                        </div>
+                    `;
                     await loadDataFromCloud();
                     navigate('videos', category, level);
                 }
@@ -1661,6 +1965,18 @@
                 console.error("Errore critico:", err);
                 showToast('Errore di connessione', 'error');
             }
+        }
+        function addVideoUrlField() {
+            const container = document.getElementById('youtube-urls-container');
+            const div = document.createElement('div');
+            div.className = 'flex items-center space-x-2 mb-2';
+            div.innerHTML = `
+                <input type="text" placeholder="Es. https://youtu.be/xxxxx" class="custom-input form-youtube-url-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                <button type="button" onclick="this.parentElement.remove()" class="w-12 h-12 rounded-2xl glass-card text-rose-500 flex items-center justify-center flex-shrink-0 shadow-inner">
+                    <i class="fa-solid fa-trash-can text-sm"></i>
+                </button>
+            `;
+            container.appendChild(div);
         }
 
         async function deleteVideo(id, e) {
@@ -1726,13 +2042,15 @@
             }
         }
 
+        let currentActiveVideoIndex = 0;
+
         function openVideoModal(id) {
             const video = state.videos.find(v => v.id === id);
             if (!video) return;
             state.currentVideoModal = id;
+            currentActiveVideoIndex = 0;
 
             const modal = document.getElementById('video-modal');
-            const container = document.getElementById('player-container');
             const titleEl = document.getElementById('modal-title');
             const badgeEl = document.getElementById('modal-badge');
             const catEl = document.getElementById('modal-category');
@@ -1746,36 +2064,43 @@
             descEl.innerText = video.desc || 'Nessuna nota aggiuntiva fornita dai maestri.';
             badgeEl.innerText = lvlObj ? lvlObj.name : video.level;
 
-            let videoUrl = video.url;
+            renderVideoPlayerContent(video);
+            updateModalFavBtn();
+            modal.classList.remove('hidden');
+        }
+
+        function renderVideoPlayerContent(video) {
+            const container = document.getElementById('player-container');
+            let urls = video.urls || [video.url];
+            let activeUrl = urls[currentActiveVideoIndex] || urls[0];
+
+            let videoHtml = '';
             
-            // Estrazione pulita dell'ID YouTube (supporta watch, short, youtu.be e embed)
-            if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+            // Estrazione pulita dell'ID YouTube
+            if (activeUrl.includes('youtube.com') || activeUrl.includes('youtu.be')) {
                 let videoId = '';
-                if (videoUrl.includes('youtu.be/')) {
-                    videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
-                } else if (videoUrl.includes('watch?v=')) {
-                    videoId = videoUrl.split('watch?v=')[1].split('&')[0];
-                } else if (videoUrl.includes('shorts/')) {
-                    videoId = videoUrl.split('shorts/')[1].split('?')[0];
-                } else if (videoUrl.includes('embed/')) {
-                    videoId = videoUrl.split('embed/')[1].split('?')[0];
+                if (activeUrl.includes('youtu.be/')) {
+                    videoId = activeUrl.split('youtu.be/')[1].split('?')[0];
+                } else if (activeUrl.includes('watch?v=')) {
+                    videoId = activeUrl.split('watch?v=')[1].split('&')[0];
+                } else if (activeUrl.includes('shorts/')) {
+                    videoId = activeUrl.split('shorts/')[1].split('?')[0];
+                } else if (activeUrl.includes('embed/')) {
+                    videoId = activeUrl.split('embed/')[1].split('?')[0];
                 }
                 
                 if (videoId) {
-                    // Aggiungiamo i parametri per nascondere il branding e ottimizzare il player pulito
-                    videoUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=1&rel=0&playsinline=1&modestbranding=1&iv_load_policy=3`;
+                    activeUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=1&rel=0&playsinline=1&modestbranding=1&iv_load_policy=3`;
                 }
             }
 
-            if (videoUrl.startsWith('blob:') || videoUrl.endsWith('.mp4') || videoUrl.endsWith('.webm')) {
-                container.innerHTML = `
-                    <video src="${videoUrl}" class="w-full h-full absolute inset-0 object-contain bg-black" controls autoplay playsinline></video>
-                `;
+            if (activeUrl.startsWith('blob:') || activeUrl.endsWith('.mp4') || activeUrl.endsWith('.webm')) {
+                videoHtml = `<video src="${activeUrl}" class="w-full h-full absolute inset-0 object-contain bg-black" controls autoplay playsinline></video>`;
             } else {
-                container.innerHTML = `
+                videoHtml = `
                     <div class="relative w-full h-full overflow-hidden">
                         <iframe
-                            src="${videoUrl}"
+                            src="${activeUrl}"
                             title="Video della lezione"
                             class="absolute inset-0 w-full h-[120%] -top-[10%] border-0 pointer-events-auto"
                             referrerpolicy="strict-origin-when-cross-origin"
@@ -1786,8 +2111,29 @@
                 `;
             }
 
-            updateModalFavBtn();
-            modal.classList.remove('hidden');
+            // Se ci sono più video, aggiungiamo i selettori in alto sopra o dentro il player
+            let selectorHtml = '';
+            if (urls.length > 1) {
+                selectorHtml = `
+                    <div class="absolute top-3 left-3 right-3 z-20 flex flex-wrap gap-2 justify-center pointer-events-auto bg-black/50 backdrop-blur-md p-2 rounded-2xl border border-white/10">
+                        ${urls.map((u, idx) => `
+                            <button onclick="switchVideoIndex(${idx})" class="px-3 py-1.5 rounded-xl text-xs font-bold transition shadow ${idx === currentActiveVideoIndex ? 'accent-bg text-white' : 'glass-card text-white hover:opacity-100 opacity-80'}">
+                                Video ${idx + 1}
+                            </button>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            container.innerHTML = selectorHtml + videoHtml;
+        }
+
+        function switchVideoIndex(index) {
+            currentActiveVideoIndex = index;
+            const video = state.videos.find(v => v.id === state.currentVideoModal);
+            if (video) {
+                renderVideoPlayerContent(video);
+            }
         }
 
         function closeVideoModal() {
@@ -1853,7 +2199,6 @@
             const toast = document.getElementById('toast');
             const msgEl = document.getElementById('toast-msg');
             const iconEl = document.getElementById('toast-icon');
-
             msgEl.innerText = msg;
             iconEl.className = type === 'success' ? 'fa-solid fa-circle-check accent-text text-lg' : 'fa-solid fa-circle-info text-blue-400 text-lg';
 
@@ -1982,6 +2327,184 @@
                 showToast('Errore durante il salvataggio', 'error');
             }
         }
+        function openEditVideoModal(id, e) {
+            if (e) e.stopPropagation();
+            const video = state.videos.find(v => v.id.toString() === id.toString());
+            if (!video) return;
+
+            document.getElementById('edit-video-id').value = video.id;
+            document.getElementById('edit-form-title').value = video.title;
+            document.getElementById('edit-form-desc').value = video.desc || '';
+
+            // Popola le categorie nel menu a tendina e seleziona quella attuale del video
+            const catSelect = document.getElementById('edit-form-category');
+            catSelect.innerHTML = state.categories.map(c => `
+                <option value="${c.id}" ${c.id === video.category ? 'selected' : ''}>${c.name}</option>
+            `).join('');
+
+            // Imposta i livelli in base alla categoria corrente del video
+            updateEditLevelsSelect(video.category, video.level);
+            
+            // Quando cambi categoria nel form di modifica, aggiorna dinamicamente i livelli disponibili per quel corso
+            catSelect.onchange = (ev) => {
+                updateEditLevelsSelect(ev.target.value);
+            };
+
+            // Popola i campi dei link YouTube esistenti (per poterli rimuovere o aggiungere)
+            const container = document.getElementById('edit-youtube-urls-container');
+            let urls = video.urls || [video.url] || [''];
+            container.innerHTML = '';
+            urls.forEach(urlVal => {
+                appendEditVideoUrlField(urlVal);
+            });
+
+            document.getElementById('edit-video-modal').classList.remove('hidden');
+        }
+
+        function updateEditLevelsSelect(catId, selectedLvlId = null) {
+            const cat = state.categories.find(c => c.id === catId);
+            const lvlSelect = document.getElementById('edit-form-level');
+            if (!cat || !cat.levels || cat.levels.length === 0) {
+                lvlSelect.innerHTML = '<option value="base">Base</option>';
+                return;
+            }
+            lvlSelect.innerHTML = cat.levels.map(l => `
+                <option value="${l.id}" ${l.id === selectedLvlId ? 'selected' : ''}>${l.name}</option>
+            `).join('');
+        }
+
+        function addEditVideoUrlField() {
+            appendEditVideoUrlField('');
+        }
+
+        function appendEditVideoUrlField(value = '') {
+            const container = document.getElementById('edit-youtube-urls-container');
+            const div = document.createElement('div');
+            div.className = 'flex items-center space-x-2';
+            div.innerHTML = `
+                <input type="text" value="${value}" required placeholder="Es. https://youtu.be/xxxxx" class="custom-input edit-youtube-url-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                <button type="button" onclick="this.parentElement.remove()" class="w-12 h-12 rounded-2xl glass-card text-rose-500 flex items-center justify-center flex-shrink-0 shadow-inner">
+                    <i class="fa-solid fa-trash-can text-sm"></i>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
+        function closeEditVideoModal() {
+            document.getElementById('edit-video-modal').classList.add('hidden');
+        }
+
+        
+        async function handleVideoUpdate(e) {
+            e.preventDefault();
+
+            if (!state.isAdmin) {
+                showToast('Operazione consentita solo all’amministratore.', 'error');
+                return;
+            }
+
+            const id = document.getElementById('edit-video-id').value.trim();
+            const title = document.getElementById('edit-form-title').value.trim();
+            const category = document.getElementById('edit-form-category').value;
+            const level = document.getElementById('edit-form-level').value;
+            const desc = document.getElementById('edit-form-desc').value.trim();
+
+            const urlInputs = document.querySelectorAll('.edit-youtube-url-input');
+            const urls = Array.from(urlInputs)
+                .map(input => input.value.trim())
+                .filter(url => url.length > 0);
+
+            if (!id) {
+                showToast('ID della lezione mancante.', 'error');
+                return;
+            }
+
+            if (!title || !category || !level || urls.length === 0) {
+                showToast('Compila tutti i campi obbligatori.', 'error');
+                return;
+            }
+
+            // Verifica che il corso e il livello selezionati esistano.
+            const selectedCategory = state.categories.find(c => c.id === category);
+            const selectedLevel = selectedCategory?.levels?.find(l => l.id === level);
+
+            if (!selectedCategory || !selectedLevel) {
+                showToast('Il corso o il livello selezionato non esiste.', 'error');
+                return;
+            }
+
+            showToast('Salvataggio modifiche...', 'info');
+
+            try {
+                // Verifica che la sessione amministratore sia ancora valida.
+                const { data: { session }, error: sessionError } =
+                    await supabaseClient.auth.getSession();
+
+                if (sessionError) throw sessionError;
+
+                if (!session || session.user.email !== ADMIN_EMAIL) {
+                    throw new Error('Sessione amministratore non valida. Accedi nuovamente.');
+                }
+
+                const updatePayload = {
+                    title: title,
+                    category: category,
+                    level: level,
+                    url: JSON.stringify(urls),
+                    description: desc
+                };
+
+                // Richiedi la riga aggiornata per verificare che esista.
+                const { data, error } = await supabaseClient
+                    .from('videos')
+                    .update(updatePayload)
+                    .eq('id', id)
+                    .select();
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    throw new Error(
+                        'Nessuna lezione aggiornata. Verifica ID e autorizzazioni RLS.'
+                    );
+                }
+
+                // Ricarica i dati effettivamente presenti nel database.
+                await loadDataFromCloud();
+
+                const updatedVideo = state.videos.find(
+                    v => String(v.id) === String(id)
+                );
+
+                if (
+                    !updatedVideo ||
+                    String(updatedVideo.title ?? '') !== title ||
+                    String(updatedVideo.category ?? '') !== String(category) ||
+                    String(updatedVideo.level ?? '') !== String(level) ||
+                    String(updatedVideo.desc ?? '').trim() !== desc
+                ) {
+                    console.error('Confronto modifica lezione:', {
+                        richiesto: { id, title, category, level, desc },
+                        ricaricato: updatedVideo || null
+                    });
+                    throw new Error(
+                        'La lezione salvata non corrisponde alle modifiche richieste. Controlla la Console (F12) per i dettagli.'
+                    );
+                }
+
+                showToast('Lezione aggiornata e verificata!', 'success');
+                closeEditVideoModal();
+
+                navigate('videos', category, level);
+            } catch (err) {
+                console.error('Errore modifica lezione:', err);
+                showToast(
+                    'Modifica non riuscita: ' + (err.message || 'errore sconosciuto'),
+                    'error'
+                );
+            }
+        }
+
     </script>
 </body>
 </html>
