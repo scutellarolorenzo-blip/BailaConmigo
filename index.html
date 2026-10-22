@@ -48,16 +48,6 @@
             overflow-y: auto;
         }
 
-        /* --- STILI PER LA PROTEZIONE DEL PLAYER VIDEO --- */
-        .secure-video-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            -webkit-touch-callout: none; /* Blocca il menu a comparsa su iOS (long press) */
-            -webkit-user-select: none;   /* Blocca la selezione su Safari/iOS */
-            user-select: none;
-        }
-
         /* --- STILI DINAMICI PER CIASCUN TEMA --- */
         
         /* 1. TEMA SCURO */
@@ -2100,8 +2090,7 @@
                 }
                 
                 if (videoId) {
-                    // PARAMETRI AGGIORNATI: controls=1 ma senza moduli di condivisione/link visibili dove possibile tramite modestbranding e rel=0
-                    activeUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=0&controls=1&rel=0&playsinline=1&modestbranding=1&iv_load_policy=3&disablekb=1`;
+                    activeUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=1&rel=0&playsinline=1&modestbranding=1&iv_load_policy=3`;
                 }
             }
 
@@ -2109,7 +2098,7 @@
                 videoHtml = `<video src="${activeUrl}" class="w-full h-full absolute inset-0 object-contain bg-black" controls autoplay playsinline></video>`;
             } else {
                 videoHtml = `
-                    <div class="secure-video-container">
+                    <div class="relative w-full h-full overflow-hidden">
                         <iframe
                             src="${activeUrl}"
                             title="Video della lezione"
@@ -2440,35 +2429,82 @@
             const selectedLevel = selectedCategory?.levels?.find(l => l.id === level);
 
             if (!selectedCategory || !selectedLevel) {
-                showToast('Corso o livello non trovato.', 'error');
+                showToast('Il corso o il livello selezionato non esiste.', 'error');
                 return;
             }
 
-            showToast('Salvataggio in corso...', 'info');
+            showToast('Salvataggio modifiche...', 'info');
 
             try {
-                const { error } = await supabaseClient
+                // Verifica che la sessione amministratore sia ancora valida.
+                const { data: { session }, error: sessionError } =
+                    await supabaseClient.auth.getSession();
+
+                if (sessionError) throw sessionError;
+
+                if (!session || session.user.email !== ADMIN_EMAIL) {
+                    throw new Error('Sessione amministratore non valida. Accedi nuovamente.');
+                }
+
+                const updatePayload = {
+                    title: title,
+                    category: category,
+                    level: level,
+                    url: JSON.stringify(urls),
+                    description: desc
+                };
+
+                // Richiedi la riga aggiornata per verificare che esista.
+                const { data, error } = await supabaseClient
                     .from('videos')
-                    .update({
-                        title: title,
-                        category: category,
-                        level: level,
-                        url: JSON.stringify(urls),
-                        description: desc
-                    })
-                    .eq('id', id);
+                    .update(updatePayload)
+                    .eq('id', id)
+                    .select();
 
                 if (error) throw error;
 
-                showToast('Lezione aggiornata con successo!', 'success');
-                closeEditVideoModal();
+                if (!data || data.length === 0) {
+                    throw new Error(
+                        'Nessuna lezione aggiornata. Verifica ID e autorizzazioni RLS.'
+                    );
+                }
+
+                // Ricarica i dati effettivamente presenti nel database.
                 await loadDataFromCloud();
+
+                const updatedVideo = state.videos.find(
+                    v => String(v.id) === String(id)
+                );
+
+                if (
+                    !updatedVideo ||
+                    String(updatedVideo.title ?? '') !== title ||
+                    String(updatedVideo.category ?? '') !== String(category) ||
+                    String(updatedVideo.level ?? '') !== String(level) ||
+                    String(updatedVideo.desc ?? '').trim() !== desc
+                ) {
+                    console.error('Confronto modifica lezione:', {
+                        richiesto: { id, title, category, level, desc },
+                        ricaricato: updatedVideo || null
+                    });
+                    throw new Error(
+                        'La lezione salvata non corrisponde alle modifiche richieste. Controlla la Console (F12) per i dettagli.'
+                    );
+                }
+
+                showToast('Lezione aggiornata e verificata!', 'success');
+                closeEditVideoModal();
+
                 navigate('videos', category, level);
             } catch (err) {
-                console.error('Errore aggiornamento video:', err);
-                showToast('Errore durante l’aggiornamento: ' + err.message, 'error');
+                console.error('Errore modifica lezione:', err);
+                showToast(
+                    'Modifica non riuscita: ' + (err.message || 'errore sconosciuto'),
+                    'error'
+                );
             }
         }
+
     </script>
 </body>
 </html>
