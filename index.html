@@ -48,6 +48,16 @@
             overflow-y: auto;
         }
 
+        /* --- STILI PER LA PROTEZIONE DEL PLAYER VIDEO --- */
+        .secure-video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            -webkit-touch-callout: none; /* Blocca il menu a comparsa su iOS (long press) */
+            -webkit-user-select: none;   /* Blocca la selezione su Safari/iOS */
+            user-select: none;
+        }
+
         /* --- STILI DINAMICI PER CIASCUN TEMA --- */
         
         /* 1. TEMA SCURO */
@@ -188,33 +198,6 @@
         }
         .custom-option:hover { background: var(--card-border); }
         .modal-overlay { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(12px); }
-        /* --- STILI ANTI-REGISTRAZIONE E BLOCCO INTERAZIONI VIDEO --- */
-        .secure-video-wrapper {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-
-        /* Overlay con griglia finissima per creare interferenza sulle telecamere esterne (Effetto Moiré) */
-        .anti-recording-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: repeating-linear-gradient(
-                0deg,
-                rgba(0, 0, 0, 0.08),
-                rgba(0, 0, 0, 0.08) 1px,
-                transparent 1px,
-                transparent 2px
-            );
-            pointer-events: none; /* Lascia passare i tocchi ma disturba l'ottica esterna */
-            z-index: 20;
-        }
     </style>
 </head>
 <body class="theme-dark h-full flex flex-col antialiased selection:bg-pink-500 selection:text-white" id="main-body">
@@ -2117,8 +2100,8 @@
                 }
                 
                 if (videoId) {
-                    // Parametri per pulire il player di YouTube dai pulsanti di condivisione
-                    activeUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=0&controls=1&rel=0&playsinline=1&modestbranding=1&iv_load_policy=3`;
+                    // PARAMETRI AGGIORNATI: controls=1 ma senza moduli di condivisione/link visibili dove possibile tramite modestbranding e rel=0
+                    activeUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=0&controls=1&rel=0&playsinline=1&modestbranding=1&iv_load_policy=3&disablekb=1`;
                 }
             }
 
@@ -2126,9 +2109,7 @@
                 videoHtml = `<video src="${activeUrl}" class="w-full h-full absolute inset-0 object-contain bg-black" controls autoplay playsinline></video>`;
             } else {
                 videoHtml = `
-                    <div class="secure-video-wrapper">
-                        <!-- Overlay anti-registrazione visivo -->
-                        <div class="anti-recording-overlay" id="recording-overlay"></div>
+                    <div class="secure-video-container">
                         <iframe
                             src="${activeUrl}"
                             title="Video della lezione"
@@ -2141,10 +2122,11 @@
                 `;
             }
 
+            // Se ci sono più video, aggiungiamo i selettori in alto sopra o dentro il player
             let selectorHtml = '';
             if (urls.length > 1) {
                 selectorHtml = `
-                    <div class="absolute top-3 left-3 right-3 z-30 flex flex-wrap gap-2 justify-center pointer-events-auto bg-black/50 backdrop-blur-md p-2 rounded-2xl border border-white/10">
+                    <div class="absolute top-3 left-3 right-3 z-20 flex flex-wrap gap-2 justify-center pointer-events-auto bg-black/50 backdrop-blur-md p-2 rounded-2xl border border-white/10">
                         ${urls.map((u, idx) => `
                             <button onclick="switchVideoIndex(${idx})" class="px-3 py-1.5 rounded-xl text-xs font-bold transition shadow ${idx === currentActiveVideoIndex ? 'accent-bg text-white' : 'glass-card text-white hover:opacity-100 opacity-80'}">
                                 Video ${idx + 1}
@@ -2155,15 +2137,6 @@
             }
 
             container.innerHTML = selectorHtml + videoHtml;
-
-            // Avvia un leggero sfarfallio casuale sull'overlay per confondere i sensori delle telecamere esterne
-            const overlayEl = document.getElementById('recording-overlay');
-            if (overlayEl) {
-                setInterval(() => {
-                    const randomOp = 0.05 + Math.random() * 0.08;
-                    overlayEl.style.opacity = randomOp;
-                }, 100);
-            }
         }
 
         function switchVideoIndex(index) {
@@ -2467,82 +2440,35 @@
             const selectedLevel = selectedCategory?.levels?.find(l => l.id === level);
 
             if (!selectedCategory || !selectedLevel) {
-                showToast('Il corso o il livello selezionato non esiste.', 'error');
+                showToast('Corso o livello non trovato.', 'error');
                 return;
             }
 
-            showToast('Salvataggio modifiche...', 'info');
+            showToast('Salvataggio in corso...', 'info');
 
             try {
-                // Verifica che la sessione amministratore sia ancora valida.
-                const { data: { session }, error: sessionError } =
-                    await supabaseClient.auth.getSession();
-
-                if (sessionError) throw sessionError;
-
-                if (!session || session.user.email !== ADMIN_EMAIL) {
-                    throw new Error('Sessione amministratore non valida. Accedi nuovamente.');
-                }
-
-                const updatePayload = {
-                    title: title,
-                    category: category,
-                    level: level,
-                    url: JSON.stringify(urls),
-                    description: desc
-                };
-
-                // Richiedi la riga aggiornata per verificare che esista.
-                const { data, error } = await supabaseClient
+                const { error } = await supabaseClient
                     .from('videos')
-                    .update(updatePayload)
-                    .eq('id', id)
-                    .select();
+                    .update({
+                        title: title,
+                        category: category,
+                        level: level,
+                        url: JSON.stringify(urls),
+                        description: desc
+                    })
+                    .eq('id', id);
 
                 if (error) throw error;
 
-                if (!data || data.length === 0) {
-                    throw new Error(
-                        'Nessuna lezione aggiornata. Verifica ID e autorizzazioni RLS.'
-                    );
-                }
-
-                // Ricarica i dati effettivamente presenti nel database.
-                await loadDataFromCloud();
-
-                const updatedVideo = state.videos.find(
-                    v => String(v.id) === String(id)
-                );
-
-                if (
-                    !updatedVideo ||
-                    String(updatedVideo.title ?? '') !== title ||
-                    String(updatedVideo.category ?? '') !== String(category) ||
-                    String(updatedVideo.level ?? '') !== String(level) ||
-                    String(updatedVideo.desc ?? '').trim() !== desc
-                ) {
-                    console.error('Confronto modifica lezione:', {
-                        richiesto: { id, title, category, level, desc },
-                        ricaricato: updatedVideo || null
-                    });
-                    throw new Error(
-                        'La lezione salvata non corrisponde alle modifiche richieste. Controlla la Console (F12) per i dettagli.'
-                    );
-                }
-
-                showToast('Lezione aggiornata e verificata!', 'success');
+                showToast('Lezione aggiornata con successo!', 'success');
                 closeEditVideoModal();
-
+                await loadDataFromCloud();
                 navigate('videos', category, level);
             } catch (err) {
-                console.error('Errore modifica lezione:', err);
-                showToast(
-                    'Modifica non riuscita: ' + (err.message || 'errore sconosciuto'),
-                    'error'
-                );
+                console.error('Errore aggiornamento video:', err);
+                showToast('Errore durante l’aggiornamento: ' + err.message, 'error');
             }
         }
-
     </script>
 </body>
 </html>
