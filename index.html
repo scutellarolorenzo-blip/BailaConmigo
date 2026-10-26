@@ -1223,7 +1223,13 @@
                 html += `<div class="col-span-full text-center py-12 glass-card rounded-3xl"><p class="text-sm opacity-60">Nessun corso abilitato al momento. Attendi che l'amministratore approvi le tue iscrizioni.</p></div>`;
             } else {
                 availableCategories.forEach(cat => {
-                    const count = state.videos.filter(v => v.category === cat.id).length;
+                    const userLevel = !state.isAdmin ? state.userProfile?.subscriptions?.[cat.id] : null;
+                    const count = state.videos.filter(v => {
+                        if (v.category !== cat.id) return false;
+                        if (!v.isVisible && !state.isAdmin) return false; // Esclude i video non visibili per gli studenti
+                        if (!state.isAdmin && userLevel && v.level !== userLevel) return false; // Conta solo quelli del proprio livello
+                        return true;
+                    }).length;
                     html += `
                         <div onclick="navigate('levels', '${cat.id}')" class="glass-card group relative rounded-3xl overflow-hidden cursor-pointer flex flex-col h-48">
                             <div class="absolute inset-0 overflow-hidden rounded-3xl">
@@ -1281,7 +1287,11 @@
                 html += `<p class="opacity-50 text-sm text-center py-8">Nessun livello autorizzato per questo corso.</p>`;
             } else {
                 allowedLevels.forEach(lvl => {
-                    const count = state.videos.filter(v => v.category === cat.id && v.level === lvl.id).length;
+                    const count = state.videos.filter(v => {
+                        if (v.category !== cat.id || v.level !== lvl.id) return false;
+                        if (!v.isVisible && !state.isAdmin) return false; // Esclude i video non visibili per gli studenti
+                        return true;
+                    }).length;
                     html += `
                         <div onclick="navigate('videos', '${cat.id}', '${lvl.id}')" class="glass-card group rounded-3xl p-5 cursor-pointer flex items-center justify-between">
                             <div class="flex items-center space-x-4">
