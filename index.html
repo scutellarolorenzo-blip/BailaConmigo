@@ -171,7 +171,7 @@
             overflow-y: auto; 
             border-radius: 14px !important; 
             padding: 6px !important;
-            z-index: 999999 !important; 
+            z-index: 999999 !important; /* Valore alto per stare davanti a tutto */
             box-sizing: border-box; 
             background: var(--modal-bg) !important; 
             border: 1px solid var(--card-border) !important; 
@@ -179,7 +179,7 @@
         }
         
         /* AGGIUNGI QUESTE RIGHE SUBITO SOTTO */
-        #signup-courses-container, #edit-student-courses-container, #signup-courses-section {
+        #signup-courses-container, #edit-student-courses-container, #signup-courses-section, .glass-card {
             overflow: visible !important;
         }
         .custom-option {
@@ -1651,36 +1651,36 @@
             const optionsEl = document.getElementById(`options-${type}`);
             const wrapper = optionsEl.closest('.custom-select-wrapper');
             
-            // Chiudi tutti gli altri menu e resetta
+            // Chiudi tutti gli altri menu a tendina aperti
             document.querySelectorAll('.custom-select-options').forEach(el => {
                 if(el !== optionsEl) {
                     el.style.display = 'none';
-                    el.style.top = '';
-                    el.style.bottom = '';
-                    const parentCard = el.closest('.glass-card');
+                    const parentCard = el.closest('.glass-card') || el.closest('.space-y-3');
                     if(parentCard) parentCard.style.zIndex = '1';
                 }
             });
 
-            const parentCard = optionsEl.closest('.glass-card');
+            const parentCard = optionsEl.closest('.glass-card') || optionsEl.closest('.space-y-3');
 
             if (optionsEl.style.display === 'block') {
                 optionsEl.style.display = 'none';
-                optionsEl.style.top = '';
-                optionsEl.style.bottom = '';
                 if(parentCard) parentCard.style.zIndex = '1';
             } else {
-                // Calcola lo spazio disponibile rispetto al fondo della finestra o del modale
-                optionsEl.style.display = 'block';
-                const rect = optionsEl.getBoundingClientRect();
-                const windowHeight = window.innerHeight;
+                // Calcola se c'è abbastanza spazio sotto all'interno del modale
+                const wrapperRect = wrapper.getBoundingClientRect();
+                const modalBox = optionsEl.closest('.modal-box');
+                const modalRect = modalBox ? modalBox.getBoundingClientRect() : null;
 
-                // Se esce dallo schermo in basso (lasciando un margine di 20px), aprilo verso l'alto
-                if (rect.bottom > windowHeight - 20) {
-                    optionsEl.style.bottom = 'calc(100% + 8px)';
+                optionsEl.style.display = 'block';
+                
+                // Se il menu esce dal fondo della finestra o del modale, aprilo verso l'alto
+                const spaceBelow = modalRect ? (modalRect.bottom - wrapperRect.bottom) : (window.innerHeight - wrapperRect.bottom);
+                
+                if (spaceBelow < 220) {
+                    optionsEl.style.bottom = 'calc(100% + 6px)';
                     optionsEl.style.top = 'auto';
                 } else {
-                    optionsEl.style.top = 'calc(100% + 8px)';
+                    optionsEl.style.top = 'calc(100% + 6px)';
                     optionsEl.style.bottom = 'auto';
                 }
 
