@@ -341,7 +341,7 @@
 
                 <div>
                     <div class="flex items-center justify-between mb-1">
-                        <label class="block text-xs font-semibold uppercase tracking-wider opacity-80">Link YouTube (Puoi aggiungerne o rimuoverne)</label>
+                        <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">URL Video Cloudflare R2 (Puoi aggiungerne o rimuoverne)</label>
                         <button type="button" onclick="addEditVideoUrlField()" class="text-xs accent-text font-bold hover:opacity-80 flex items-center space-x-1">
                             <i class="fa-solid fa-plus"></i><span>Aggiungi video</span>
                         </button>
@@ -2382,7 +2382,7 @@
             const div = document.createElement('div');
             div.className = 'flex items-center space-x-2';
             div.innerHTML = `
-                <input type="text" value="${value}" required placeholder="Es. https://youtu.be/xxxxx" class="custom-input edit-youtube-url-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                <input type="text" value="${value}" required placeholder="Es. https://pub-xxx.r2.dev/video.mp4" class="custom-input form-youtube-url-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
                 <button type="button" onclick="this.parentElement.remove()" class="w-12 h-12 rounded-2xl glass-card text-rose-500 flex items-center justify-center flex-shrink-0 shadow-inner">
                     <i class="fa-solid fa-trash-can text-sm"></i>
                 </button>
@@ -2408,8 +2408,8 @@
             const category = document.getElementById('edit-form-category').value;
             const level = document.getElementById('edit-form-level').value;
             const desc = document.getElementById('edit-form-desc').value.trim();
-
-            const urlInputs = document.querySelectorAll('.edit-youtube-url-input');
+            
+            const urlInputs = document.querySelectorAll('.form-youtube-url-input');
             const urls = Array.from(urlInputs)
                 .map(input => input.value.trim())
                 .filter(url => url.length > 0);
