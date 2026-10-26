@@ -351,9 +351,22 @@
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Note e Descrizione Maestri</label>
-                    <textarea id="edit-form-desc" rows="3" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition resize-none shadow-inner"></textarea>
+                <div class="space-y-4">
+                    <div class="p-4 rounded-2xl glass-card flex items-center justify-between shadow-inner">
+                        <div>
+                            <span class="block text-xs font-semibold uppercase tracking-wider opacity-80">Visibile agli Studenti</span>
+                            <span class="text-[11px] opacity-60">Attiva per mostrare la lezione agli studenti del corso.</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="edit-form-is-visible" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-500"></div>
+                        </label>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Note e Descrizione Maestri</label>
+                        <textarea id="edit-form-desc" rows="3" class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition resize-none shadow-inner"></textarea>
+                    </div>
                 </div>
 
                 <div class="flex space-x-3 pt-2">
@@ -907,7 +920,8 @@
                             level: v.level,
                             urls: parsedUrl,
                             duration: v.duration || '5:00',
-                            desc: String(v.description ?? v.desc ?? '')
+                            desc: String(v.description ?? v.desc ?? ''),
+                            isVisible: v.is_visible !== undefined ? v.is_visible : true
                         };
                     });
                 }
@@ -1212,8 +1226,10 @@
                     const count = state.videos.filter(v => v.category === cat.id).length;
                     html += `
                         <div onclick="navigate('levels', '${cat.id}')" class="glass-card group relative rounded-3xl overflow-hidden cursor-pointer flex flex-col h-48">
-                            <div class="absolute inset-0 bg-cover bg-center opacity-70 group-hover:scale-105 transition duration-500" style="background-image: url('${cat.bgImage || 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=600&q=80'}')"></div>
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                            <div class="absolute inset-0 overflow-hidden rounded-3xl">
+                                <div class="absolute inset-0 bg-cover bg-center opacity-70 group-hover:scale-105 transition duration-500 rounded-3xl" style="background-image: url('${cat.bgImage || 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=600&q=80'}')"></div>
+                            </div>
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent rounded-3xl"></div>
                             
                             <div class="relative p-5 flex flex-col justify-between h-full z-10 text-white">
                                 <div class="flex items-start justify-between">
@@ -1297,7 +1313,11 @@
             const lvlObj = cat && cat.levels ? cat.levels.find(l => l.id === state.selectedLevel) : null;
             const lvlName = lvlObj ? lvlObj.name : state.selectedLevel;
 
-            const filteredVideos = state.videos.filter(v => v.category === state.selectedCategory && v.level === state.selectedLevel);
+            const filteredVideos = state.videos.filter(v => {
+                if (v.category !== state.selectedCategory || v.level !== state.selectedLevel) return false;
+                if (!state.isAdmin && !v.isVisible) return false; // Gli studenti vedono solo i video visibili
+                return true;
+            });
 
             let html = `
                 <div class="mb-6 flex items-center justify-between">
@@ -1331,13 +1351,16 @@
                 filteredVideos.forEach(v => {
                     const isFav = state.favorites.includes(v.id);
                     html += `
-                        <div class="glass-card rounded-3xl p-4 flex items-center justify-between transition">
+                        <div class="glass-card rounded-3xl p-4 flex items-center justify-between transition ${!v.isVisible ? 'opacity-60 border-dashed border-amber-500/40' : ''}">
                             <div class="flex items-center space-x-4 cursor-pointer flex-1 min-w-0" onclick="openVideoModal('${v.id}')">
                                 <div class="w-14 h-14 rounded-2xl glass-card accent-text flex items-center justify-center text-xl flex-shrink-0 shadow-inner">
-                                    <i class="fa-solid fa-play animate-pulse"></i>
+                                    <i class="fa-solid ${v.isVisible ? 'fa-play animate-pulse' : 'fa-eye-slash text-amber-400'}"></i>
                                 </div>
                                 <div class="min-w-0 flex-1 pr-2">
-                                    <h3 class="font-bold text-sm sm:text-base break-words hover:opacity-80 transition leading-snug">${v.title}</h3>
+                                    <div class="flex items-center space-x-2 mb-0.5">
+                                        <h3 class="font-bold text-sm sm:text-base break-words hover:opacity-80 transition leading-snug">${v.title}</h3>
+                                        ${state.isAdmin && !v.isVisible ? '<span class="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold uppercase">Nascosto</span>' : ''}
+                                    </div>
                                     <span class="text-[10px] opacity-70 uppercase font-semibold">${v.urls ? v.urls.length : 1} video caricati</span>
                                 </div>
                             </div>
@@ -1582,6 +1605,18 @@
                             </div>
                         </div>
 
+                        <div>
+                            <!-- Interruttore Visibilità -->
+                        <div class="p-4 rounded-2xl glass-card flex items-center justify-between shadow-inner mb-4">
+                            <div>
+                                <span class="block text-xs font-semibold uppercase tracking-wider opacity-80">Visibile agli Studenti</span>
+                                <span class="text-[11px] opacity-60">Se disattivato, il video sarà nascosto e visibile solo all'admin.</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="form-is-visible" checked class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-500"></div>
+                            </label>
+                        </div>
                         <div>
                             <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Note e Descrizione Maestri</label>
                             <textarea id="form-desc" rows="3" placeholder="Dettagli sulla presa o tempo musicale..." class="custom-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition resize-none shadow-inner"></textarea>
@@ -1961,11 +1996,11 @@
                 showToast('Sessione non valida o scaduta. Effettua nuovamente il login.', 'error');
                 return;
             }
-
             const title = document.getElementById('form-title').value;
             const category = document.getElementById('form-category').value;
             const level = document.getElementById('form-level').value;
             const desc = document.getElementById('form-desc').value;
+            const isVisible = document.getElementById('form-is-visible').checked;
 
             // Raccoglie tutti i link YouTube inseriti dinamicamente nei campi di input multipli
             const urlInputs = document.querySelectorAll('.form-youtube-url-input');
@@ -1984,7 +2019,8 @@
                     category,
                     level,
                     url: urls,
-                    description: desc
+                    description: desc,
+                    is_visible: isVisible
                 };
 
                 let { error: insertErr } = await supabaseClient.from('videos').insert([newVideoRecord]);
@@ -2359,6 +2395,7 @@
             document.getElementById('edit-video-id').value = video.id;
             document.getElementById('edit-form-title').value = video.title;
             document.getElementById('edit-form-desc').value = video.desc || '';
+            document.getElementById('edit-form-is-visible').checked = video.isVisible;
 
             // Popola le categorie nel menu a tendina e seleziona quella attuale del video
             const catSelect = document.getElementById('edit-form-category');
@@ -2470,12 +2507,15 @@
                     throw new Error('Sessione amministratore non valida. Accedi nuovamente.');
                 }
 
+                const isVisible = document.getElementById('edit-form-is-visible').checked;
+
                 const updatePayload = {
                     title: title,
                     category: category,
                     level: level,
                     url: JSON.stringify(urls),
-                    description: desc
+                    description: desc,
+                    is_visible: isVisible
                 };
 
                 // Richiedi la riga aggiornata per verificare che esista.
