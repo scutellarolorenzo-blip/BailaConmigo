@@ -392,7 +392,7 @@
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            <div class="relative w-full bg-black aspect-video flex items-center justify-center" id="player-container"></div>
+            <div class="relative w-full bg-black aspect-video flex items-center justify-center" id="player-container" oncontextmenu="return false;"></div>
             <div class="p-5 overflow-y-auto space-y-4">
                 <div class="flex items-center justify-between">
                     <div>
@@ -1526,14 +1526,14 @@
 
                         <div>
                             <div class="flex items-center justify-between mb-1">
-                                <label class="block text-xs font-semibold uppercase tracking-wider opacity-80">Link YouTube (Uno o più video)</label>
+                                <label class="block text-xs font-semibold uppercase tracking-wider opacity-80">Link Video Cloudflare R2 (Uno o più video)</label>
                                 <button type="button" onclick="addVideoUrlField()" class="text-xs accent-text font-bold hover:opacity-80 flex items-center space-x-1">
                                     <i class="fa-solid fa-plus"></i><span>Aggiungi un altro video</span>
                                 </button>
                             </div>
                             <div id="youtube-urls-container" class="space-y-2">
                                 <div class="flex items-center space-x-2">
-                                    <input type="text" required placeholder="Es. https://youtu.be/xxxxx" class="custom-input form-youtube-url-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                                    <input type="text" required placeholder="Es. https://pub-xxx.r2.dev/video.mp4" class="custom-input form-youtube-url-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
                                 </div>
                             </div>
                         </div>
@@ -1966,12 +1966,13 @@
                 showToast('Errore di connessione', 'error');
             }
         }
+        
         function addVideoUrlField() {
             const container = document.getElementById('youtube-urls-container');
             const div = document.createElement('div');
             div.className = 'flex items-center space-x-2 mb-2';
             div.innerHTML = `
-                <input type="text" placeholder="Es. https://youtu.be/xxxxx" class="custom-input form-youtube-url-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
+                <input type="text" placeholder="Es. https://pub-xxx.r2.dev/video.mp4" class="custom-input form-youtube-url-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition shadow-inner">
                 <button type="button" onclick="this.parentElement.remove()" class="w-12 h-12 rounded-2xl glass-card text-rose-500 flex items-center justify-center flex-shrink-0 shadow-inner">
                     <i class="fa-solid fa-trash-can text-sm"></i>
                 </button>
@@ -2069,64 +2070,7 @@
             modal.classList.remove('hidden');
         }
 
-        function renderVideoPlayerContent(video) {
-            const container = document.getElementById('player-container');
-            let urls = video.urls || [video.url];
-            let activeUrl = urls[currentActiveVideoIndex] || urls[0];
-
-            let videoHtml = '';
-            
-            // Estrazione pulita dell'ID YouTube
-            if (activeUrl.includes('youtube.com') || activeUrl.includes('youtu.be')) {
-                let videoId = '';
-                if (activeUrl.includes('youtu.be/')) {
-                    videoId = activeUrl.split('youtu.be/')[1].split('?')[0];
-                } else if (activeUrl.includes('watch?v=')) {
-                    videoId = activeUrl.split('watch?v=')[1].split('&')[0];
-                } else if (activeUrl.includes('shorts/')) {
-                    videoId = activeUrl.split('shorts/')[1].split('?')[0];
-                } else if (activeUrl.includes('embed/')) {
-                    videoId = activeUrl.split('embed/')[1].split('?')[0];
-                }
-                
-                if (videoId) {
-                    activeUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=1&rel=0&playsinline=1&modestbranding=1&iv_load_policy=3`;
-                }
-            }
-
-            if (activeUrl.startsWith('blob:') || activeUrl.endsWith('.mp4') || activeUrl.endsWith('.webm')) {
-                videoHtml = `<video src="${activeUrl}" class="w-full h-full absolute inset-0 object-contain bg-black" controls autoplay playsinline></video>`;
-            } else {
-                videoHtml = `
-                    <div class="relative w-full h-full overflow-hidden">
-                        <iframe
-                            src="${activeUrl}"
-                            title="Video della lezione"
-                            class="absolute inset-0 w-full h-[120%] -top-[10%] border-0 pointer-events-auto"
-                            referrerpolicy="strict-origin-when-cross-origin"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            allowfullscreen>
-                        </iframe>
-                    </div>
-                `;
-            }
-
-            // Se ci sono più video, aggiungiamo i selettori in alto sopra o dentro il player
-            let selectorHtml = '';
-            if (urls.length > 1) {
-                selectorHtml = `
-                    <div class="absolute top-3 left-3 right-3 z-20 flex flex-wrap gap-2 justify-center pointer-events-auto bg-black/50 backdrop-blur-md p-2 rounded-2xl border border-white/10">
-                        ${urls.map((u, idx) => `
-                            <button onclick="switchVideoIndex(${idx})" class="px-3 py-1.5 rounded-xl text-xs font-bold transition shadow ${idx === currentActiveVideoIndex ? 'accent-bg text-white' : 'glass-card text-white hover:opacity-100 opacity-80'}">
-                                Video ${idx + 1}
-                            </button>
-                        `).join('')}
-                    </div>
-                `;
-            }
-
-            container.innerHTML = selectorHtml + videoHtml;
-        }
+        
 
         function switchVideoIndex(index) {
             currentActiveVideoIndex = index;
@@ -2141,7 +2085,43 @@
             const container = document.getElementById('player-container');
             container.innerHTML = '';
             modal.classList.add('hidden');
-            state.currentVideoModal = null;
+ 
+        state.currentVideoModal = null;
+        }
+
+        function renderVideoPlayerContent(video) {
+            const container = document.getElementById('player-container');
+            let urls = video.urls || [video.url];
+            let activeUrl = urls[currentActiveVideoIndex] || urls[0];
+
+            // Player HTML5 nativo protetto per Cloudflare R2
+            let videoHtml = `
+                <video src="${activeUrl}" 
+                    class="w-full h-full absolute inset-0 object-contain bg-black" 
+                    controls 
+                    controlsList="nodownload" 
+                    disablepictureinpicture 
+                    oncontextmenu="return false;" 
+                    autoplay 
+                    playsinline>
+                </video>
+            `;
+
+            // Se ci sono più video per la stessa figura, mostra i selettori in alto
+            let selectorHtml = '';
+            if (urls.length > 1) {
+                selectorHtml = `
+                    <div class="absolute top-3 left-3 right-3 z-20 flex flex-wrap gap-2 justify-center pointer-events-auto bg-black/50 backdrop-blur-md p-2 rounded-2xl border border-white/10">
+                        ${urls.map((u, idx) => `
+                            <button onclick="switchVideoIndex(${idx})" class="px-3 py-1.5 rounded-xl text-xs font-bold transition shadow ${idx === currentActiveVideoIndex ? 'accent-bg text-white' : 'glass-card text-white hover:opacity-100 opacity-80'}">
+                                Video ${idx + 1}
+                            </button>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            container.innerHTML = selectorHtml + videoHtml;
         }
 
         function toggleSearchModal(show) {
