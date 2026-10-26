@@ -542,12 +542,56 @@
                 })
                 .subscribe();
                 // Registrazione Service Worker per PWA
+                // Registrazione Service Worker per PWA
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.register('./sw.js')
                         .then((reg) => console.log('Service Worker registrato:', reg.scope))
                         .catch((err) => console.log('Errore Service Worker:', err));
                 }
+
+        // --- PROTEZIONE AVANZATA CONTRO SCREEN RECORDING E ATTIVITÀ SOSPETTE ---
+
+        // 1. Interrompe e chiude il video se l'utente cambia scheda, riduce a icona o passa ad altra app
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                const videoEl = document.querySelector('#player-container video');
+                if (videoEl) {
+                    videoEl.pause();
+                    videoEl.currentTime = 0;
+                }
+                closeVideoModal();
+                showToast('Riproduzione interrotta: rilevato cambio di finestra o tentativo di registrazione.', 'error');
+            }
         });
+
+        // 2. Mette in pausa se la finestra perde il focus
+        window.addEventListener('blur', () => {
+            const videoEl = document.querySelector('#player-container video');
+            if (videoEl) {
+                videoEl.pause();
+            }
+        });
+
+        // 3. Disabilita la combinazione di tasti per aprire gli strumenti di sviluppo (F12, Ctrl+Shift+I, ecc.)
+        document.addEventListener('keydown', (e) => {
+            if (
+                e.key === 'F12' || 
+                (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) || 
+                (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
+            ) {
+                e.preventDefault();
+                showToast('Azione non consentita per motivi di sicurezza.', 'error');
+                return false;
+            }
+        });
+
+        // 4. Blocca completamente il menu contestuale (tasto destro) su tutto il documento
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            return false;
+        });
+
+        }); // <-- Questa chiude definitivamente il DOMContentLoaded
 
         async function checkSessionAndProfile() {
             const { data: { session } } = await supabaseClient.auth.getSession();
