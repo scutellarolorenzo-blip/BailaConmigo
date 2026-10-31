@@ -1178,6 +1178,8 @@
             }
 
             if (state.user && !state.isAdmin && state.userProfile && state.userProfile.status === 'approved' && state.subscriptionExpired) {
+                let expDateStr = state.userProfile.subscription_expires_at ? new Date(state.userProfile.subscription_expires_at).toLocaleDateString('it-IT') : '';
+                
                 container.innerHTML = `
                     <div class="text-center py-20 glass-card rounded-3xl p-6 sm:p-8 max-w-lg mx-auto mt-12">
                         <i class="fa-solid fa-credit-card text-5xl accent-text mb-4 animate-pulse"></i>
@@ -1571,7 +1573,9 @@
                     }).join(', ') : 'Nessun corso';
 
                     let expDateText = st.subscription_expires_at ? new Date(st.subscription_expires_at).toLocaleDateString('it-IT') : 'Mai impostata';
-                    let isExpired = st.subscription_expires_at ? new Date() > new Date(st.subscription_expires_at) : true;
+                    
+                    // Verifica se l'abbonamento è attualmente attivo (data presente e nel futuro rispetto ad oggi)
+                    let isActive = st.subscription_expires_at ? new Date() <= new Date(st.subscription_expires_at) : false;
 
                     html += `
                         <div class="p-4 rounded-2xl glass-card space-y-2">
@@ -1579,10 +1583,13 @@
                                 <div>
                                     <h4 class="font-bold text-sm">Studente: <span class="accent-text">@${st.username}</span></h4>
                                     <p class="text-xs opacity-70 mt-0.5">Corsi abilitati: <span class="accent-text font-semibold">${subsText}</span></p>
-                                    <p class="text-xs opacity-70 mt-0.5">Scadenza Abbonamento: <span class="${isExpired ? 'text-rose-400 font-bold' : 'accent-text font-semibold'}">${expDateText}</span></p>
+                                    <p class="text-xs opacity-70 mt-0.5">Scadenza Abbonamento: <span class="${!isActive ? 'text-rose-400 font-bold' : 'text-emerald-400 font-semibold'}">${expDateText}</span></p>
                                 </div>
                                 <div class="flex items-center space-x-2">
-                                    <button onclick="renewSubscription('${st.id}')" class="px-3 py-1.5 accent-bg text-white rounded-xl text-xs font-semibold shadow">Rinnova 1 Mese</button>
+                                    ${isActive 
+                                        ? `<span class="px-3.5 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold cursor-default select-none shadow-inner">Abbonamento in corso</span>` 
+                                        : `<button onclick="renewSubscription('${st.id}')" class="px-3.5 py-1.5 accent-bg text-white rounded-xl text-xs font-semibold shadow">Rinnova 1 Mese</button>`
+                                    }
                                     <button onclick="openEditStudentModal('${st.id}')" class="px-3 py-1.5 glass-card rounded-xl text-xs font-semibold accent-text">Modifica</button>
                                     <button onclick="deleteStudent('${st.id}')" class="px-3.5 py-1.5 glass-card text-rose-500 rounded-xl text-xs font-semibold">Rimuovi</button>
                                 </div>
