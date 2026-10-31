@@ -449,7 +449,7 @@
 
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        const ADMIN_EMAIL = 'lorenzofortest@gmail.com';
+        const ADMIN_EMAIL = 'yoanetmariela.81@gmail.com';
 
         const defaultCategories = [
             { 
@@ -619,13 +619,28 @@
                     let { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
                     state.userProfile = profile;
                     state.isAdmin = false;
-                    // Carica i preferiti personali dal profilo Cloud di questo specifico account
                     state.favorites = profile?.favorites || [];
+
+                    // CONTROLLO ABBONAMENTO A PRESCINDERE (SCADUTO O MANCANTE)
+                    if (profile && profile.status === 'approved') {
+                        if (!profile.subscription_expires_at) {
+                            state.subscriptionExpired = true; // Se non ha una data registrata, mostra il pagamento a prescindere
+                        } else {
+                            const expiresAt = new Date(profile.subscription_expires_at);
+                            const now = new Date();
+                            if (now > expiresAt) {
+                                state.subscriptionExpired = true;
+                            } else {
+                                state.subscriptionExpired = false;
+                            }
+                        }
+                    }
                 }
             } else {
                 state.user = null;
                 state.userProfile = null;
                 state.isAdmin = false;
+                state.subscriptionExpired = false;
                 state.favorites = [];
             }
             updateAuthUI();
@@ -1162,6 +1177,30 @@
                 return;
             }
 
+            if (state.user && !state.isAdmin && state.userProfile && state.userProfile.status === 'approved' && state.subscriptionExpired) {
+                container.innerHTML = `
+                    <div class="text-center py-20 glass-card rounded-3xl p-6 sm:p-8 max-w-lg mx-auto mt-12">
+                        <i class="fa-solid fa-credit-card text-5xl accent-text mb-4 animate-pulse"></i>
+                        <h2 class="text-2xl font-extrabold mb-2">Abbonamento Mensile Scaduto</h2>
+                        <p class="opacity-80 text-sm mb-6">Il tuo abbonamento mensile è terminato. Procedi al pagamento con carta per rinnovare l'accesso ai corsi all'istante.</p>
+                        
+                        <div class="space-y-3 mb-6">
+                            <!-- Pulsante Pagamento con Carta (Stripe Checkout) -->
+                            <a href="https://buy.stripe.com/cNi3cuaz66hu1gv3R55EY00" target="_blank" class="flex items-center justify-center space-x-2 w-full py-3.5 accent-bg text-white font-bold rounded-2xl text-sm shadow-xl transition transform active:scale-95">
+                                <i class="fa-solid fa-credit-card"></i>
+                                <span>Paga con Carta di Credito</span>
+                            </a>
+                        </div>
+
+                        <div class="p-4 rounded-2xl glass-card mb-6 text-xs opacity-90 leading-relaxed">
+                            💡 Dopo aver completato il pagamento online, ricarica questa pagina o contatta l'amministratore per la verifica e la riattivazione immediata dell'account.
+                        </div>
+                        <button onclick="handleAuthClick()" class="px-6 py-3 glass-card rounded-2xl text-xs font-semibold shadow">Effettua il Logout</button>
+                    </div>
+                `;
+                return;
+            }
+
             switch(state.currentRoute) {
                 case 'home':
                     container.innerHTML = renderHome();
@@ -1531,15 +1570,20 @@
                         return `${cObj?.name || cId} (${lObj?.name || lId})`;
                     }).join(', ') : 'Nessun corso';
 
+                    let expDateText = st.subscription_expires_at ? new Date(st.subscription_expires_at).toLocaleDateString('it-IT') : 'Mai impostata';
+                    let isExpired = st.subscription_expires_at ? new Date() > new Date(st.subscription_expires_at) : true;
+
                     html += `
                         <div class="p-4 rounded-2xl glass-card space-y-2">
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div>
                                     <h4 class="font-bold text-sm">Studente: <span class="accent-text">@${st.username}</span></h4>
                                     <p class="text-xs opacity-70 mt-0.5">Corsi abilitati: <span class="accent-text font-semibold">${subsText}</span></p>
+                                    <p class="text-xs opacity-70 mt-0.5">Scadenza Abbonamento: <span class="${isExpired ? 'text-rose-400 font-bold' : 'accent-text font-semibold'}">${expDateText}</span></p>
                                 </div>
                                 <div class="flex items-center space-x-2">
-                                    <button onclick="openEditStudentModal('${st.id}')" class="px-3 py-1.5 glass-card rounded-xl text-xs font-semibold accent-text">Modifica Corsi</button>
+                                    <button onclick="renewSubscription('${st.id}')" class="px-3 py-1.5 accent-bg text-white rounded-xl text-xs font-semibold shadow">Rinnova 1 Mese</button>
+                                    <button onclick="openEditStudentModal('${st.id}')" class="px-3 py-1.5 glass-card rounded-xl text-xs font-semibold accent-text">Modifica</button>
                                     <button onclick="deleteStudent('${st.id}')" class="px-3.5 py-1.5 glass-card text-rose-500 rounded-xl text-xs font-semibold">Rimuovi</button>
                                 </div>
                             </div>
@@ -2576,6 +2620,34 @@
                     'Modifica non riuscita: ' + (err.message || 'errore sconosciuto'),
                     'error'
                 );
+            }
+        }
+        async function renewSubscription(userId) {
+            const student = state.studentsList.find(s => s.id === userId);
+            if (!student) return;
+
+            let baseDate = new Date();
+            if (student.subscription_expires_at) {
+                const currentExp = new Date(student.subscription_expires_at);
+                if (currentExp > baseDate) {
+                    baseDate = currentExp; // Se non è ancora scaduto, estende a partire dalla scadenza attuale
+                }
+            }
+            
+            // Aggiunge 30 giorni
+            baseDate.setDate(baseDate.getDate() + 30);
+
+            let { error } = await supabaseClient
+                .from('profiles')
+                .update({ subscription_expires_at: baseDate.toISOString() })
+                .eq('id', userId);
+
+            if (!error) {
+                showToast('Abbonamento rinnovato per 30 giorni!', 'success');
+                await loadDataFromCloud();
+                render();
+            } else {
+                showToast('Errore durante il rinnovo dell\'abbonamento', 'error');
             }
         }
 
