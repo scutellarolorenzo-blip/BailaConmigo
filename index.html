@@ -2626,29 +2626,45 @@
             const student = state.studentsList.find(s => s.id === userId);
             if (!student) return;
 
-            let baseDate = new Date();
-            if (student.subscription_expires_at) {
-                const currentExp = new Date(student.subscription_expires_at);
-                if (currentExp > baseDate) {
-                    baseDate = currentExp; // Se non è ancora scaduto, estende a partire dalla scadenza attuale
-                }
-            }
+            // Mostra il nome e cognome dello studente nella richiesta di conferma
+            let nomeStudente = student.username.toUpperCase();
             
-            // Aggiunge 30 giorni
-            baseDate.setDate(baseDate.getDate() + 30);
+            showCustomPrompt(
+                "Conferma Rinnovo Abbonamento", 
+                `Stai rinnovando l'abbonamento per: ${nomeStudente}.\n\nPer confermare, digita esattamente il suo nome e cognome (${student.username}):`, 
+                "", 
+                async (insertedName) => {
+                    // Verifica che il testo inserito corrisponda al nome dello studente (ignorando maiuscole/minuscole)
+                    if (!insertedName || insertedName.trim().toLowerCase() !== student.username.toLowerCase()) {
+                        showToast('Nome non corrispondente. Rinnovo annullato.', 'error');
+                        return;
+                    }
 
-            let { error } = await supabaseClient
-                .from('profiles')
-                .update({ subscription_expires_at: baseDate.toISOString() })
-                .eq('id', userId);
+                    let baseDate = new Date();
+                    if (student.subscription_expires_at) {
+                        const currentExp = new Date(student.subscription_expires_at);
+                        if (currentExp > baseDate) {
+                            baseDate = currentExp; // Se non è ancora scaduto, estende a partire dalla scadenza attuale
+                        }
+                    }
+                    
+                    // Aggiunge 30 giorni
+                    baseDate.setDate(baseDate.getDate() + 30);
 
-            if (!error) {
-                showToast('Abbonamento rinnovato per 30 giorni!', 'success');
-                await loadDataFromCloud();
-                render();
-            } else {
-                showToast('Errore durante il rinnovo dell\'abbonamento', 'error');
-            }
+                    let { error } = await supabaseClient
+                        .from('profiles')
+                        .update({ subscription_expires_at: baseDate.toISOString() })
+                        .eq('id', userId);
+
+                    if (!error) {
+                        showToast(`Abbonamento rinnovato con successo per ${student.username}!`, 'success');
+                        await loadDataFromCloud();
+                        render();
+                    } else {
+                        showToast('Errore durante il rinnovo dell\'abbonamento', 'error');
+                    }
+                }
+            );
         }
 
     </script>
